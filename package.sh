@@ -1,0 +1,1 @@
+# TODO. this script, has to bundle executables and licenses and CHANGELOG and VERSION maybe, same as library.
