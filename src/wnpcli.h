@@ -8,17 +8,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-// TODO: actual cli port is 5468 but its in use right now
-#define CLI_PORT 1234
+#define CLI_PORT 5468
 #define CLI_VERSION "3.0.0"
 
 #ifdef _WIN32
 #define SOCKET_PATH "wnpcli.sock"
 
-#include <windows.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 
 #include <afunix.h>
-#include <winsock2.h>
 
 #define unlink _unlink
 #else
