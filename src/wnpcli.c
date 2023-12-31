@@ -196,7 +196,9 @@ struct arguments parse_args(int argc, char** argv)
       char* command_arg = argv[param_index];
       switch (arguments.command) {
       case COMMAND_METADATA:
-        if (strcmp(command_arg, "id") == 0) {
+        if (strcmp(command_arg, "all") == 0) {
+          arguments.command_arg = METADATA_ALL;
+        } else if (strcmp(command_arg, "id") == 0) {
           arguments.command_arg = METADATA_ID;
         } else if (strcmp(command_arg, "name") == 0) {
           arguments.command_arg = METADATA_NAME;
@@ -320,7 +322,7 @@ struct arguments parse_args(int argc, char** argv)
     }
   }
 
-  if (!arguments.list_all && command_index == -1) {
+  if (!arguments.list_all && arguments.command == -1) {
     printf("No command was provided.\nSee 'wnpcli --help' for more.\n");
     exit(EXIT_FAILURE);
   }
