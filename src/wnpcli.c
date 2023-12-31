@@ -59,7 +59,7 @@ void print_help()
   printf("  skip-previous           Skip to the previous track\n");
   printf("  skip-next               Skip to the next track\n");
   printf("  set-position [x][+/-]   Set the position or seek forward/backward x in seconds\n");
-  printf("  set-volume [x]          Set the volume from 0 to 100\n");
+  printf("  set-volume [x][+/-]     Set the volume from 0 to 100\n");
   printf("  set-rating [x]          Set the rating from 0 to 5\n");
   printf("  set-repeat [repeat]     Set the repeat mode. Can be NONE, ALL or ONE\n");
   printf("  set-shuffle [shuffle]   Set the shuffle. Can be 0 or 1\n");
@@ -290,6 +290,12 @@ struct arguments parse_args(int argc, char** argv)
         if (arguments.command_arg > 100 || arguments.command_arg < 0) {
           printf("Invalid volume: %d\n", arguments.command_arg);
           exit(EXIT_FAILURE);
+        }
+        char last_char = command_arg[strlen(command_arg) - 1];
+        if (last_char == '+') {
+          arguments.flags = arguments.flags | RELATIVE_POSITION_PLUS;
+        } else if (last_char == '-') {
+          arguments.flags = arguments.flags | RELATIVE_POSITION_MINUS;
         }
         break;
       case COMMAND_SET_RATING:

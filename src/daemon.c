@@ -398,7 +398,13 @@ void compute_state(struct client_state* state)
     }
     break;
   case COMMAND_SET_VOLUME:
-    event_id = wnp_try_set_volume(player, state->arguments.command_arg);
+    if (state->arguments.flags & RELATIVE_POSITION_PLUS) {
+      event_id = wnp_try_set_volume(player, state->arguments.command_arg + player->volume);
+    } else if (state->arguments.flags & RELATIVE_POSITION_MINUS) {
+      event_id = wnp_try_set_volume(player, state->arguments.command_arg - player->volume);
+    } else {
+      event_id = wnp_try_set_volume(player, state->arguments.command_arg);
+    }
     break;
   case COMMAND_SET_RATING:
     event_id = wnp_try_set_rating(player, state->arguments.command_arg);
