@@ -1,15 +1,17 @@
 # There is no linux32 build since who even uses 32bit on linux
+VERSION = $(shell cat VERSION)
 CLEAN = rm -rf build
 MKDIR = mkdir -p build/obj
 CFLAGS = -Wall -Ideps
-CFLAGS += -O2
+CFLAGS += -O2 -DCLI_VERSION='"$(VERSION)"'
 # CFLAGS += -g
 
 ifeq ($(OS),Windows_NT)
+	VERSION = $(shell type VERSION)
 	CLEAN = rmdir /s /q build
 	MKDIR = mkdir build\obj
 	CFLAGS = /EHsc /Ideps
-	CFLAGS += /O2
+	CFLAGS += /O2 /DCLI_VERSION=\"$(VERSION)\"
 #	CFLAGS += /Zi /DEBUG
 #	LINK_FLAGS = /DEBUG
 endif

@@ -9,7 +9,6 @@
 #include <string.h>
 
 #define CLI_PORT 5468
-#define CLI_VERSION "3.0.0"
 
 #ifdef _WIN32
 #define SOCKET_PATH "wnpcli.sock"
