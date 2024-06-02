@@ -2,7 +2,7 @@
 VERSION = $(shell cat VERSION)
 CLEAN = rm -rf build
 MKDIR = mkdir -p build/obj
-CFLAGS = -Wall -Ideps
+CFLAGS = -Wall -Ideps -Ldeps -L$(LIB_PATH) -I$(INCLUDE_PATH)
 CFLAGS += -O2 -DCLI_VERSION='"$(VERSION)"'
 # CFLAGS += -g
 
@@ -25,7 +25,7 @@ linux64: | build
 build/obj/%_linux_amd64.o: src/%.c
 	clang $(CFLAGS) -c $< -o $@
 build/wnpcli_linux_amd64: $(OBJS_LINUX64)
-	clang $(CFLAGS) $^ -o $@ -Ldeps -lwnp_linux_amd64
+	clang $(CFLAGS) $^ -o $@ -l:libwnp.a
 
 OBJS_WIN64 = build/obj/wnpcli_win64.obj build/obj/daemon_win64.obj build/obj/cargs_win64.obj
 win64: | build

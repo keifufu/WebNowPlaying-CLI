@@ -5,7 +5,33 @@ Support for desktop players is limited to Windows as of now.
 
 # Installing
 
+### Manually
+
 Download from [Releases](https://github.com/keifufu/WebNowPlaying-CLI/releases)
+
+### Nix
+
+```bash
+nix profile install github:keifufu/WebNowPlaying-CLI
+```
+
+<details>
+<summary>NixOS</summary>
+
+This assumes you use home manager with flakes.
+
+- Add `github:keifufu/WebNowPlaying-CLI` to your inputs as `wnpcli`
+- Import `inputs.wnpcli.homeManagerModules.wnpcli`
+
+```nix
+  programs.wnpcli = {
+    enable = true;
+    # If you want to start the wnpcli daemon on startup
+    service.enable = true;
+  };
+```
+
+</details>
 
 # Usage
 
