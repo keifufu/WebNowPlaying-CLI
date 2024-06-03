@@ -28,8 +28,11 @@
         '';
       };
       devShells.default = pkgs.mkShell {
-        shellHook = "exec $SHELL";
-        buildInputs = with pkgs; [ clang valgrind gnumake ];
+        shellHook = "
+          cp -f ${libwnppkg}/include/wnp.h src/
+          exec $SHELL
+        ";
+        buildInputs = with pkgs; [ clang valgrind gnumake ] ++ [ libwnppkg ];
       };
     };
     flake = {
