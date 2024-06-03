@@ -4,6 +4,7 @@ CLEAN = rm -rf build
 MKDIR = mkdir -p build/obj
 CFLAGS = -Wall -Wno-unused-command-line-argument -Ideps -Ldeps -L$(LIB_PATH) -I$(INCLUDE_PATH)
 CFLAGS += -O2 -DCLI_VERSION='"$(VERSION)"'
+LIBPATH = -l:libwnp.a
 # CFLAGS += -g
 
 ifeq ($(OS),Windows_NT)
@@ -17,7 +18,7 @@ ifeq ($(OS),Windows_NT)
 endif
 
 all:
-	@echo Available targets: linux64, win64
+	@echo Available targets: linux64, darwin64, win64
 
 OBJS_LINUX64 = build/obj/wnpcli_linux_amd64.o build/obj/daemon_linux_amd64.o build/obj/cargs_linux_amd64.o
 linux64: | build
@@ -25,7 +26,7 @@ linux64: | build
 build/obj/%_linux_amd64.o: src/%.c
 	clang $(CFLAGS) -c $< -o $@
 build/wnpcli_linux_amd64: $(OBJS_LINUX64)
-	clang $(CFLAGS) $^ -o $@ -l:libwnp.a
+	clang $(CFLAGS) $^ -o $@ $(LIBPATH)
 
 OBJS_WIN64 = build/obj/wnpcli_win64.obj build/obj/daemon_win64.obj build/obj/cargs_win64.obj
 win64: | build

@@ -21,7 +21,7 @@
         src = ./.;
         buildInputs = with pkgs; [ clang makeWrapper ] ++ [ libwnppkg ];
         buildPhase = ''
-          make linux64 LIB_PATH=${libwnppkg}/lib INCLUDE_PATH=${libwnppkg}/include
+          make linux64 LIBPATH=${libwnppkg}/lib/libwnp.a
         '';
         installPhase = ''
           mkdir -p $out/bin
