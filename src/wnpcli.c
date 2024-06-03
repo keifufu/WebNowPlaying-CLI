@@ -435,6 +435,7 @@ int connect_sock(struct arguments arguments)
 
     message_buffer[message_len] = '\0';
     printf("%s\n", message_buffer);
+    fflush(stdout);
     free(message_buffer);
     message_buffer = NULL;
   }
