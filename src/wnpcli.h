@@ -28,34 +28,35 @@
 #include <unistd.h>
 #endif
 
-static char* get_socket_path() {
-  #ifdef _WIN32
-    return "wnpcli.sock"
-  #endif
+static char* get_socket_path()
+{
+#ifdef _WIN32
+  return "wnpcli.sock"
+#endif
 
-  static char socket_path[64] = "";
+         static char socket_path[64] = "";
   static int initialized = 0;
 
   if (!initialized) {
-    #ifdef __APPLE__
-      const char* runtime_dir = getenv("TMPDIR");
-      if (runtime_dir == NULL) {
-        fprintf(stderr, "TMPDIR environment variable not set\n");
-        exit(EXIT_FAILURE);
-      }
-      snprintf(socket_path, 64, "%s/wnpcli_sock", runtime_dir);
-    #elif __linux__
-      const char* xdg_runtime_dir = getenv("XDG_RUNTIME_DIR");
-      if (xdg_runtime_dir == NULL) {
-        fprintf(stderr, "XDG_RUNTIME_DIR environment variable not set\n");
-        exit(EXIT_FAILURE);
-      }
-
-      snprintf(socket_path, 64, "%s/wnpcli.sock", xdg_runtime_dir);
-    #else
-      fprintf(stderr, "Unsupported platform\n");
+#ifdef __APPLE__
+    const char* runtime_dir = getenv("TMPDIR");
+    if (runtime_dir == NULL) {
+      fprintf(stderr, "TMPDIR environment variable not set\n");
       exit(EXIT_FAILURE);
-    #endif
+    }
+    snprintf(socket_path, 64, "%s/wnpcli_sock", runtime_dir);
+#elif __linux__
+    const char* xdg_runtime_dir = getenv("XDG_RUNTIME_DIR");
+    if (xdg_runtime_dir == NULL) {
+      fprintf(stderr, "XDG_RUNTIME_DIR environment variable not set\n");
+      exit(EXIT_FAILURE);
+    }
+
+    snprintf(socket_path, 64, "%s/wnpcli.sock", xdg_runtime_dir);
+#else
+    fprintf(stderr, "Unsupported platform\n");
+    exit(EXIT_FAILURE);
+#endif
     initialized = 1;
   }
 
@@ -126,6 +127,7 @@ enum cli_flags {
 };
 
 struct arguments {
+  bool no_detach;
   int player_id;
   char format[256];
   bool follow;

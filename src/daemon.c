@@ -410,7 +410,7 @@ void compute_state(struct client_state* state)
     // Need to send the messages in here instead of after compute_state
     // since we stop the daemon here.
     printf("Received stop-daemon. Stopping...\n");
-    send_message(state->client_fd, "Stopping the daemon...\nDone.");
+    send_message(state->client_fd, "Daemon stopped.");
     signal_handler(SIGTERM);
     break;
   case COMMAND_METADATA:
@@ -575,7 +575,7 @@ void on_any_wnp_update(struct wnp_player* player)
 int handle_client(void* data)
 {
   int client_fd = *((int*)data);
-  struct client_state state = {{-1, "", false, false, false, -1, -1}, "", false, client_fd, 0};
+  struct client_state state = {{false, -1, "", false, false, false, -1, -1}, "", false, client_fd, 0};
 
   if (recv(client_fd, &state.arguments, sizeof(struct arguments), 0) <= 0) {
     return 0;

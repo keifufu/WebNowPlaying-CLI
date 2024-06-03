@@ -1,7 +1,14 @@
 #include "wnpcli.h"
+#include "unistd.h"
 #include <stdlib.h>
 
 static struct cag_option options[] = {
+    {
+        .identifier = 'n',
+        .access_letters = "n",
+        .access_name = "no-detach",
+        .description = "Do not detach the daemon",
+    },
     {
         .identifier = 'p',
         .access_letters = "p",
@@ -98,7 +105,7 @@ struct arguments parse_args(int argc, char** argv)
 {
   char identifier;
   cag_option_context context;
-  struct arguments arguments = {PLAYER_ID_ACTIVE, "", false, false, false, -1, -1, 0};
+  struct arguments arguments = {false, PLAYER_ID_ACTIVE, "", false, false, false, -1, -1, 0};
   int param_index;
   int command_index = -1;
 
@@ -106,6 +113,9 @@ struct arguments parse_args(int argc, char** argv)
   while (cag_option_fetch(&context)) {
     identifier = cag_option_get(&context);
     switch (identifier) {
+    case 'n':
+      arguments.no_detach = true;
+      break;
     case 'p': {
       const char* player_str = cag_option_get_value(&context);
       if (player_str == NULL) {
@@ -465,7 +475,14 @@ int main(int argc, char** argv)
       printf("A daemon is already running.\nYou can stop it with 'wnpcli stop-daemon'\n");
       return EXIT_FAILURE;
     } else {
-      printf("Starting the daemon\n");
+      printf("Daemon started.\n");
+#ifndef _WIN32
+      // daemon() does not exist on windows
+      if (!arguments.no_detach && daemon(0, 0)) {
+        perror("daemon failed");
+        exit(EXIT_FAILURE);
+      }
+#endif
       return start_daemon();
     }
   } else {

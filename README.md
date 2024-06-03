@@ -49,7 +49,7 @@ Available Commands:
   skip-previous           Skip to the previous track
   skip-next               Skip to the next track
   set-position [x][+/-]   Set the position or seek forward/backward x in seconds
-  set-volume [x]          Set the volume from 0 to 100
+  set-volume [x][+/-]     Set the volume from 0 to 100
   set-rating [x]          Set the rating from 0 to 5
   set-repeat [repeat]     Set the repeat mode. Can be NONE, ALL or ONE
   set-shuffle [shuffle]   Set the shuffle. Can be 0 or 1
@@ -60,6 +60,7 @@ Available Commands:
   select-next             Set the selection to the next player
 
 Available Options:
+  -n, --no-detach         Do not detach the daemon
   -p, --player=ID         The player to target. Can be active, selected, or a players ID (default: active)
   -f, --format=FORMAT     A format string for printing properties and metadata
   -F, --follow            Block and append the query to output when it changes

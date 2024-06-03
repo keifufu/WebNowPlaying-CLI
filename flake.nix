@@ -66,7 +66,7 @@
             };
             Service = {
               Type = "simple";
-              ExecStart = "${config.programs.wnpcli.package}/bin/wnpcli start-daemon";
+              ExecStart = "${config.programs.wnpcli.package}/bin/wnpcli start-daemon --no-detach";
               Restart = "always";
             };
             Install.WantedBy = [ "default.target" ];
