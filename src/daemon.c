@@ -595,8 +595,9 @@ int start_daemon()
   events.on_player_updated = &on_any_wnp_update;
   events.on_player_removed = &on_any_wnp_update;
   events.on_active_player_changed = &on_any_wnp_update;
-  if (wnp_start(CLI_PORT, CLI_VERSION, &events) < 0) {
-    perror("Failed to start webnowplaying");
+  int wnp_ret = wnp_start(CLI_PORT, CLI_VERSION, &events);
+  if (wnp_ret > 0) {
+    fprintf(stderr, "Failed to start webnowplaying with code %d\n", wnp_ret);
     exit(-1);
   }
 
@@ -611,8 +612,8 @@ int start_daemon()
   }
 
   server_addr.sun_family = AF_UNIX;
-  strcpy(server_addr.sun_path, SOCKET_PATH);
-  unlink(SOCKET_PATH);
+  strcpy(server_addr.sun_path, get_socket_path());
+  unlink(get_socket_path());
 
   if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
     perror("Failed to bind the socket");
