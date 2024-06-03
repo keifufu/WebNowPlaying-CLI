@@ -110,6 +110,7 @@ struct arguments parse_args(int argc, char** argv)
       const char* player_str = cag_option_get_value(&context);
       if (player_str == NULL) {
         printf("No player is was provided\n");
+        exit(EXIT_FAILURE);
       }
 
       if (strcmp(player_str, "active") == 0) {
