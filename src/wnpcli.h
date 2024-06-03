@@ -11,8 +11,6 @@
 #define CLI_PORT 5468
 
 #ifdef _WIN32
-#define SOCKET_PATH "wnpcli.sock"
-
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -20,13 +18,37 @@
 
 #define unlink _unlink
 #else
-#define SOCKET_PATH "/tmp/wnpcli.sock"
+#ifndef CLI_VERSION
+#define CLI_VERSION "unknown"
+#endif
 
 #include <sys/socket.h>
 #include <sys/un.h>
 
 #include <unistd.h>
 #endif
+
+static char* get_socket_path() {
+  #ifdef _WIN32
+    return "wnpcli.sock"
+  #endif
+
+  static char socket_path[64] = "";
+  static int initialized = 0;
+
+  if (!initialized) {
+    const char *xdg_runtime_dir = getenv("XDG_RUNTIME_DIR");
+    if (xdg_runtime_dir == NULL) {
+      fprintf(stderr, "XDG_RUNTIME_DIR environment variable not set\n");
+      exit(EXIT_FAILURE);
+    }
+
+    snprintf(socket_path, 64, "%s/wnpcli.sock", xdg_runtime_dir);
+    initialized = 1;
+  }
+
+  return socket_path;
+}
 
 enum commands {
   COMMAND_START_DAEMON,

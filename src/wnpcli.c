@@ -376,7 +376,7 @@ bool is_daemon_running()
   }
 
   server_addr.sun_family = AF_UNIX;
-  strcpy(server_addr.sun_path, SOCKET_PATH);
+  strcpy(server_addr.sun_path, get_socket_path());
 
   if (connect(client_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
     return false;
@@ -409,7 +409,7 @@ int connect_sock(struct arguments arguments)
   }
 
   server_addr.sun_family = AF_UNIX;
-  strcpy(server_addr.sun_path, SOCKET_PATH);
+  strcpy(server_addr.sun_path, get_socket_path());
 
   if (connect(client_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
     no_daemon();
