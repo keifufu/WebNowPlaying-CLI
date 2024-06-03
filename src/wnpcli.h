@@ -37,13 +37,25 @@ static char* get_socket_path() {
   static int initialized = 0;
 
   if (!initialized) {
-    const char *xdg_runtime_dir = getenv("XDG_RUNTIME_DIR");
-    if (xdg_runtime_dir == NULL) {
-      fprintf(stderr, "XDG_RUNTIME_DIR environment variable not set\n");
-      exit(EXIT_FAILURE);
-    }
+    #ifdef __APPLE__
+      const char* runtime_dir = getenv("TMPDIR");
+      if (runtime_dir == NULL) {
+        fprintf(stderr, "TMPDIR environment variable not set\n");
+        exit(EXIT_FAILURE);
+      }
+      snprintf(socket_path, 64, "%s/wnpcli_sock", runtime_dir);
+    #elif __linux__
+      const char* xdg_runtime_dir = getenv("XDG_RUNTIME_DIR");
+      if (xdg_runtime_dir == NULL) {
+        fprintf(stderr, "XDG_RUNTIME_DIR environment variable not set\n");
+        exit(EXIT_FAILURE);
+      }
 
-    snprintf(socket_path, 64, "%s/wnpcli.sock", xdg_runtime_dir);
+      snprintf(socket_path, 64, "%s/wnpcli.sock", xdg_runtime_dir);
+    #else
+      fprintf(stderr, "Unsupported platform\n");
+      exit(EXIT_FAILURE);
+    #endif
     initialized = 1;
   }
 
