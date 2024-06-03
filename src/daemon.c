@@ -252,7 +252,7 @@ void compute_metadata(struct client_state* state, struct wnp_player* player)
     append_response(state, "is-desktop-player", is_desktop_player_str);
     break;
   case METADATA_ID:
-    strncpy(state->response, name_str, MAX_RESPONSE_LEN);
+    strncpy(state->response, id_str, MAX_RESPONSE_LEN);
     break;
   case METADATA_NAME:
     strncpy(state->response, name_str, MAX_RESPONSE_LEN);
