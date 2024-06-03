@@ -10,6 +10,7 @@
     systems = [
       "x86_64-linux"
       "aarch64-linux"
+      "arch64-darwin"
     ];
     perSystem = { pkgs, system, ...}: let 
       libwnppkg = libwnp.packages.${system}.default;
