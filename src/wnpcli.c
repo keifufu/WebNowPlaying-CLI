@@ -259,7 +259,7 @@ struct arguments parse_args(int argc, char** argv)
         } else if (strcmp(command_arg, "is-desktop-player") == 0) {
           arguments.command_arg = METADATA_IS_DESKTOP_PLAYER;
         } else {
-          printf("Invalid metadata argument: %s\n", command_arg);
+          printf("Invalid metadata argument: %s\nSee 'wnpcli metadata' for all valid arguments\n", command_arg);
           exit(EXIT_FAILURE);
         }
         break;

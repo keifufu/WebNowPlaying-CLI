@@ -90,8 +90,14 @@ void replace_placeholder(char* str, const char* placeholder, char* value)
 void get_formatted_id(struct wnp_player* player, char* output, size_t size)
 {
   char* name_lowercase = strdup(player->name);
-  for (char* p = name_lowercase; *p; ++p)
-    *p = tolower(*p);
+  char* dst = name_lowercase;
+  for (char* src = name_lowercase; *src; ++src) {
+    if (*src != ' ') {
+      *dst = tolower(*src);
+      ++dst;
+    }
+  }
+  *dst = '\0';
   snprintf(output, size, "%s%d", name_lowercase, player->id);
   free(name_lowercase);
 }
@@ -245,10 +251,9 @@ void compute_metadata(struct client_state* state, struct wnp_player* player)
     append_response(state, "active-at", active_at_str);
     append_response(state, "is-desktop-player", is_desktop_player_str);
     break;
-  case METADATA_ID: {
+  case METADATA_ID:
     strncpy(state->response, name_str, MAX_RESPONSE_LEN);
     break;
-  }
   case METADATA_NAME:
     strncpy(state->response, name_str, MAX_RESPONSE_LEN);
     break;
@@ -288,10 +293,9 @@ void compute_metadata(struct client_state* state, struct wnp_player* player)
   case METADATA_RATING:
     strncpy(state->response, rating_str, MAX_RESPONSE_LEN);
     break;
-  case METADATA_REPEAT: {
+  case METADATA_REPEAT:
     strncpy(state->response, repeat_str, MAX_RESPONSE_LEN);
     break;
-  }
   case METADATA_SHUFFLE:
     strncpy(state->response, shuffle_str, MAX_RESPONSE_LEN);
     break;
