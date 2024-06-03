@@ -2,7 +2,7 @@
 VERSION = $(shell cat VERSION)
 CLEAN = rm -rf build
 MKDIR = mkdir -p build/obj
-CFLAGS = -Wall -Ideps -Ldeps -L$(LIB_PATH) -I$(INCLUDE_PATH)
+CFLAGS = -Wall -Wno-unused-command-line-argument -Ideps -Ldeps -L$(LIB_PATH) -I$(INCLUDE_PATH)
 CFLAGS += -O2 -DCLI_VERSION='"$(VERSION)"'
 # CFLAGS += -g
 
