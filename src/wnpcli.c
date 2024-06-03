@@ -445,7 +445,7 @@ int connect_sock(struct arguments arguments)
 
   // No need to close() the connection here.
   // If the while(true) loop stopped, then either
-  // the connection was close from the daemon, or it
+  // the daemon closed the connection, or it
   // errored anyway.
 
 #ifdef _WIN32

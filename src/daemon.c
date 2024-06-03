@@ -555,6 +555,7 @@ int handle_client(void* data)
       if (g_states[i] == NULL) {
         index = i;
         g_states[i] = &state;
+        break;
       }
     }
 
@@ -564,10 +565,8 @@ int handle_client(void* data)
       return 0;
     }
 
-    int bytes_received = recv(client_fd, NULL, 0, 0);
-    if (bytes_received <= 0) {
-      g_states[index] = NULL;
-    }
+    recv(client_fd, NULL, 0, 0);
+    g_states[index] = NULL;
   }
 
   return 0;
