@@ -111,6 +111,33 @@ void append_response(struct client_state* state, char* key, char* value)
   }
 }
 
+bool parse_format_str(const char* formatstr, char* formatout, char* defaultout)
+{
+  const char* default_start = strstr(formatstr, "{{default:");
+  if (default_start) {
+    size_t format_len = default_start - formatstr;
+    strncpy(formatout, formatstr, format_len);
+
+    default_start += 10; // move past {{default:
+    const char* default_end = strstr(default_start, "}}");
+    if (default_end) {
+      size_t default_len = default_end - default_start;
+      strncpy(defaultout, default_start, default_len);
+      defaultout[default_len] = '\0';
+
+      default_end += 2; // move past }}
+      strcat(formatout, default_end);
+
+      return true;
+    }
+  }
+
+  strcpy(formatout, formatstr);
+  defaultout[0] = '\0';
+
+  return false;
+}
+
 // Very naive implementation, but it works for now soooo.... can I be bothered?
 void compute_metadata(struct client_state* state, struct wnp_player* player)
 {
@@ -184,7 +211,14 @@ void compute_metadata(struct client_state* state, struct wnp_player* player)
   wnp_unlock(player);
 
   if (strlen(state->arguments.format) > 0) {
-    strncpy(state->response, state->arguments.format, MAX_RESPONSE_LEN);
+    char format_str[MAX_RESPONSE_LEN] = "";
+    char default_str[MAX_RESPONSE_LEN] = "";
+    if (parse_format_str(state->arguments.format, format_str, default_str) && player->id == -1) {
+      strncpy(state->response, default_str, MAX_RESPONSE_LEN);
+      return;
+    }
+
+    strncpy(state->response, format_str, MAX_RESPONSE_LEN);
     replace_placeholder(state->response, "{{id}}", id_str);
     replace_placeholder(state->response, "{{name}}", name_str);
     replace_placeholder(state->response, "{{title}}", title_str);
