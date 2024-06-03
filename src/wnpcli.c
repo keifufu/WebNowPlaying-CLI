@@ -73,7 +73,7 @@ void print_help()
   cag_option_print(options, CAG_ARRAY_SIZE(options), stdout);
 }
 
-int player_player_id(const char* str)
+int parse_player_id(const char* str)
 {
   int start = -1;
   int i = 0;
@@ -117,7 +117,7 @@ struct arguments parse_args(int argc, char** argv)
       } else if (strcmp(player_str, "selected") == 0) {
         arguments.player_id = PLAYER_ID_SELECTED;
       } else {
-        int player_id = player_player_id(player_str);
+        int player_id = parse_player_id(player_str);
         if (player_id == -1) {
           printf("Invalid player id: %s\n", player_str);
           exit(EXIT_FAILURE);
