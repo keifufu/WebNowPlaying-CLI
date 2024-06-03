@@ -42,11 +42,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1717418185,
-        "narHash": "sha256-WcqvQv3+Gaalt426Vot4vEEJ6u4r4G73cHndbAklI5c=",
+        "lastModified": 1717421200,
+        "narHash": "sha256-7J1rL2MrDXeA1XKjgv74+VpBPumDsCe6F1XYs8xIb5Q=",
         "owner": "keifufu",
         "repo": "WebNowPlaying-Library",
-        "rev": "e318a19f9c85c246df2adf601d5b176d557d9cd5",
+        "rev": "157cac70dce7dca003ecbaf6445361142caf9f14",
         "type": "github"
       },
       "original": {
