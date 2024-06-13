@@ -21,7 +21,7 @@
 #include <afunix.h>
 
 #define unlink _unlink
-#elif
+#else
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -31,7 +31,7 @@
 static char* get_socket_path()
 {
   static char socket_path[64] = "";
-  static int initialized = 0;
+  static bool initialized = 0;
 
   if (!initialized) {
 #ifdef _WIN32
@@ -66,7 +66,7 @@ static char* get_socket_path()
     fprintf(stderr, "Unsupported platform\n");
     exit(EXIT_FAILURE);
 #endif
-    initialized = 1;
+    initialized = true;
   }
 
   return socket_path;
