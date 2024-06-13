@@ -11,7 +11,7 @@
 #define CLI_PORT 5468
 
 #ifndef CLI_VERSION
-#define CLI_VERSION "unknown"
+#define CLI_VERSION "0.0.0"
 #endif
 
 #ifdef _WIN32
@@ -30,15 +30,24 @@
 
 static char* get_socket_path()
 {
-#ifdef _WIN32
-  return "wnpcli.sock";
-#endif
-
   static char socket_path[64] = "";
   static int initialized = 0;
 
   if (!initialized) {
-#ifdef __APPLE__
+#ifdef _WIN32
+    char* tmp_dir = getenv("TEMP");
+    if (tmp_dir == NULL) {
+      fprintf(stderr, "TEMP environment variable not set\n");
+      exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; tmp_dir[i] != '\0'; i++) {
+      if (tmp_dir[i] == '\\') {
+        tmp_dir[i] = '/';
+      }
+    }
+    snprintf(socket_path, 64, "%s/wnpcli_sock", tmp_dir);
+#elif __APPLE__
     const char* runtime_dir = getenv("TMPDIR");
     if (runtime_dir == NULL) {
       fprintf(stderr, "TMPDIR environment variable not set\n");
