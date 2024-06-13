@@ -18,7 +18,7 @@ ifeq ($(OS),Windows_NT)
 endif
 
 all:
-	@echo Available targets: linux64, darwin64, win64
+	@echo Available targets: linux64, win64
 
 OBJS_LINUX64 = build/obj/wnpcli_linux_amd64.o build/obj/daemon_linux_amd64.o build/obj/cargs_linux_amd64.o
 linux64: | build
