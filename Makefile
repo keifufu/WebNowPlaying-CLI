@@ -2,18 +2,18 @@
 VERSION = $(shell cat VERSION)
 CLEAN = rm -rf build
 MKDIR = mkdir -p build/obj
-CFLAGS = -Wall -Wno-unused-command-line-argument -Ideps -Ldeps -L$(LIB_PATH) -I$(INCLUDE_PATH)
-CFLAGS += -O2 -DCLI_VERSION='"$(VERSION)"'
+CFLAGS = -Wall -Wno-unused-command-line-argument -Ideps -Ldeps -L$(LIB_PATH) -I$(INCLUDE_PATH) -DCLI_VERSION='"$(VERSION)"'
 LIBPATH = -l:libwnp.a
+CFLAGS += -O2
 # CFLAGS += -g
 
 ifeq ($(OS),Windows_NT)
 	VERSION = $(shell type VERSION)
 	CLEAN = rmdir /s /q build
 	MKDIR = mkdir build\obj
-	CFLAGS = /EHsc /Ideps
-	CFLAGS += /O2 /DCLI_VERSION=\"$(VERSION)\"
-#	CFLAGS += /Zi /DEBUG
+	CFLAGS = /EHsc /Ideps /DCLI_VERSION=\"$(VERSION)\"
+	CFLAGS += /O2
+#	CFLAGS += /Zi
 #	LINK_FLAGS = /DEBUG
 endif
 
