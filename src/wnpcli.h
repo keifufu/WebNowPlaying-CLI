@@ -10,6 +10,10 @@
 
 #define CLI_PORT 5468
 
+#ifndef CLI_VERSION
+#define CLI_VERSION "unknown"
+#endif
+
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -17,11 +21,7 @@
 #include <afunix.h>
 
 #define unlink _unlink
-#else
-#ifndef CLI_VERSION
-#define CLI_VERSION "unknown"
-#endif
-
+#elif
 #include <sys/socket.h>
 #include <sys/un.h>
 
@@ -31,10 +31,10 @@
 static char* get_socket_path()
 {
 #ifdef _WIN32
-  return "wnpcli.sock"
+  return "wnpcli.sock";
 #endif
 
-         static char socket_path[64] = "";
+  static char socket_path[64] = "";
   static int initialized = 0;
 
   if (!initialized) {

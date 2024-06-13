@@ -1,5 +1,4 @@
 #include "wnpcli.h"
-#include "unistd.h"
 #include <stdlib.h>
 
 static struct cag_option options[] = {
