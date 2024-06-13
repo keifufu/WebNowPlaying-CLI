@@ -584,7 +584,7 @@ int handle_client(void* data)
     send_message(client_fd, state.response);
 
     if (state.should_close) {
-      close(client_fd);
+      close_fd(client_fd);
       return 0;
     }
 
@@ -599,7 +599,7 @@ int handle_client(void* data)
 
     if (index == -1) {
       send_message(client_fd, "Too many clients connected");
-      close(client_fd);
+      close_fd(client_fd);
       return 0;
     }
 
@@ -671,7 +671,7 @@ int start_daemon()
     thread_detach(thread);
   }
 
-  close(server_fd);
+  close_fd(server_fd);
 #ifdef _WIN32
   WSACleanup();
 #endif

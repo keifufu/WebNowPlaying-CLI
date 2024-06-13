@@ -63,6 +63,17 @@ static char* get_socket_path()
   return socket_path;
 }
 
+static void close_fd(int fd)
+{
+#ifdef _WIN32
+  shutdown(fd, SD_BOTH);
+  closesocket(fd);
+#else
+  shutdown(fd, SHUT_RDWR);
+  close(fd);
+#endif
+}
+
 enum commands {
   COMMAND_START_DAEMON,
   COMMAND_STOP_DAEMON,

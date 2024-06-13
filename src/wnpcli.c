@@ -392,7 +392,7 @@ bool is_daemon_running()
     return false;
   }
 
-  close(client_fd);
+  close_fd(client_fd);
 #ifdef _WIN32
   WSACleanup();
 #endif
@@ -438,7 +438,7 @@ int connect_sock(struct arguments arguments)
       break;
     }
 
-    message_buffer = malloc(message_len + 1);
+    message_buffer = calloc(1, message_len + 1);
     if (recv(client_fd, message_buffer, message_len, 0) <= 0) {
       break;
     }
@@ -454,7 +454,7 @@ int connect_sock(struct arguments arguments)
     free(message_buffer);
   }
 
-  // No need to close() the connection here.
+  // No need to close_fd() the connection here.
   // If the while(true) loop stopped, then either
   // the daemon closed the connection, or it
   // errored anyway.
