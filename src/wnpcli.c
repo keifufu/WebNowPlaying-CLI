@@ -407,6 +407,7 @@ int connect_sock(struct arguments arguments)
     printf("WSAStartup failed\n");
     return EXIT_FAILURE;
   }
+  _setmode(_fileno(stdout), 0x00020000); // _O_U16TEXT
 #endif
 
   int client_fd;
@@ -444,7 +445,13 @@ int connect_sock(struct arguments arguments)
     }
 
     message_buffer[message_len] = '\0';
+#ifdef _WIN64
+    char16_t utf16_buffer[MAX_RESPONSE_LEN] = {0};
+    wnp_utf8_to_utf16(message_buffer, message_len, utf16_buffer, MAX_RESPONSE_LEN);
+    wprintf(L"%ls\n", utf16_buffer);
+#else
     printf("%s\n", message_buffer);
+#endif
     fflush(stdout);
     free(message_buffer);
     message_buffer = NULL;
