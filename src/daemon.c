@@ -16,7 +16,6 @@
  *
  */
 
-#define MAX_RESPONSE_LEN 2048
 struct client_state {
   struct arguments arguments;
   char response[MAX_RESPONSE_LEN];
@@ -553,7 +552,7 @@ void compute_state(struct client_state* state)
   }
 }
 
-void on_any_wnp_update(struct wnp_player* player)
+void on_any_wnp_update(struct wnp_player* player, void* data)
 {
   for (int i = 0; i < MAX_STATES; i++) {
     struct client_state* state = g_states[i];
@@ -632,6 +631,7 @@ int start_daemon()
   events.on_player_updated = &on_any_wnp_update;
   events.on_player_removed = &on_any_wnp_update;
   events.on_active_player_changed = &on_any_wnp_update;
+  events.data = NULL;
   int wnp_ret = wnp_start(CLI_PORT, CLI_VERSION, &events);
   if (wnp_ret > 0) {
     fprintf(stderr, "Failed to start webnowplaying with code %d\n", wnp_ret);
