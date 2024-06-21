@@ -465,7 +465,7 @@ void compute_state(struct client_state* state)
     bool found = false;
 
     // Search between <current> and 0
-    for (int i = player->id; i > 0; i--) {
+    for (int i = player->id - 1; i >= 0; i--) {
       struct wnp_player* new_player = wnp_get_player(i, false);
       if (new_player != NULL) {
         g_selected_player_id = new_player->id;
@@ -502,7 +502,7 @@ void compute_state(struct client_state* state)
     bool found = false;
 
     // Search between <current> and <max>
-    for (int i = player->id; i < WNP_MAX_PLAYERS; i++) {
+    for (int i = player->id + 1; i < WNP_MAX_PLAYERS; i++) {
       struct wnp_player* new_player = wnp_get_player(i, false);
       if (new_player != NULL) {
         g_selected_player_id = new_player->id;
