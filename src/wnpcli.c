@@ -1,5 +1,4 @@
 #include "wnpcli.h"
-#include <stdlib.h>
 
 static struct cag_option options[] = {
     {
@@ -54,7 +53,7 @@ static struct cag_option options[] = {
     },
 };
 
-void print_help()
+static void print_help()
 {
   printf("Usage: wnpcli [OPTION...] COMMAND [ARG]\n\n");
   printf("Available Commands:\n");
@@ -79,7 +78,7 @@ void print_help()
   cag_option_print(options, CAG_ARRAY_SIZE(options), stdout);
 }
 
-int parse_player_id(const char* str)
+static int parse_player_id(const char* str)
 {
   int start = -1;
   int i = 0;
@@ -100,11 +99,11 @@ int parse_player_id(const char* str)
   return atoi(numstr);
 }
 
-struct arguments parse_args(int argc, char** argv)
+static arguments_t parse_args(int argc, char** argv)
 {
   char identifier;
   cag_option_context context;
-  struct arguments arguments = {false, PLAYER_ID_ACTIVE, "", false, false, false, -1, -1, 0};
+  arguments_t arguments = {false, PLAYER_ID_ACTIVE, "", false, false, false, -1, -1, 0};
   int param_index;
   int command_index = -1;
 
@@ -112,56 +111,56 @@ struct arguments parse_args(int argc, char** argv)
   while (cag_option_fetch(&context)) {
     identifier = cag_option_get(&context);
     switch (identifier) {
-    case 'n':
-      arguments.no_detach = true;
-      break;
-    case 'p': {
-      const char* player_str = cag_option_get_value(&context);
-      if (player_str == NULL) {
-        printf("No player is was provided\n");
-        exit(EXIT_FAILURE);
-      }
-
-      if (strcmp(player_str, "active") == 0) {
-        arguments.player_id = PLAYER_ID_ACTIVE;
-      } else if (strcmp(player_str, "selected") == 0) {
-        arguments.player_id = PLAYER_ID_SELECTED;
-      } else {
-        int player_id = parse_player_id(player_str);
-        if (player_id == -1) {
-          printf("Invalid player id: %s\n", player_str);
+      case 'n':
+        arguments.no_detach = true;
+        break;
+      case 'p': {
+        const char* player_str = cag_option_get_value(&context);
+        if (player_str == NULL) {
+          printf("No player is was provided\n");
           exit(EXIT_FAILURE);
         }
-        arguments.player_id = player_id;
-      }
 
-      break;
-    }
-    case 'f': {
-      const char* format_str = cag_option_get_value(&context);
-      if (format_str == NULL) {
-        printf("No format string was provided\n");
-        exit(EXIT_FAILURE);
+        if (strcmp(player_str, "active") == 0) {
+          arguments.player_id = PLAYER_ID_ACTIVE;
+        } else if (strcmp(player_str, "selected") == 0) {
+          arguments.player_id = PLAYER_ID_SELECTED;
+        } else {
+          int player_id = parse_player_id(player_str);
+          if (player_id == -1) {
+            printf("Invalid player id: %s\n", player_str);
+            exit(EXIT_FAILURE);
+          }
+          arguments.player_id = player_id;
+        }
+
+        break;
       }
-      strncpy(arguments.format, format_str, sizeof(arguments.format) - 1);
-      break;
-    }
-    case 'F':
-      arguments.follow = true;
-      break;
-    case 'l':
-      arguments.list_all = true;
-      break;
-    case 'w':
-      arguments.wait = true;
-      break;
-    case 'h':
-      print_help();
-      exit(EXIT_SUCCESS);
-    case 'v':
-      printf("wnpcli v%s\n", CLI_VERSION);
-      exit(EXIT_SUCCESS);
-      break;
+      case 'f': {
+        const char* format_str = cag_option_get_value(&context);
+        if (format_str == NULL) {
+          printf("No format string was provided\n");
+          exit(EXIT_FAILURE);
+        }
+        strncpy(arguments.format, format_str, sizeof(arguments.format) - 1);
+        break;
+      }
+      case 'F':
+        arguments.follow = true;
+        break;
+      case 'l':
+        arguments.list_all = true;
+        break;
+      case 'w':
+        arguments.wait = true;
+        break;
+      case 'h':
+        print_help();
+        exit(EXIT_SUCCESS);
+      case 'v':
+        printf("wnpcli v%s\n", WNPCLI_VERSION);
+        exit(EXIT_SUCCESS);
+        break;
     }
   }
 
@@ -205,135 +204,137 @@ struct arguments parse_args(int argc, char** argv)
     } else if (arguments.command_arg == -1) {
       char* command_arg = argv[param_index];
       switch (arguments.command) {
-      case COMMAND_METADATA:
-        if (strcmp(command_arg, "all") == 0) {
-          arguments.command_arg = METADATA_ALL;
-        } else if (strcmp(command_arg, "id") == 0) {
-          arguments.command_arg = METADATA_ID;
-        } else if (strcmp(command_arg, "name") == 0) {
-          arguments.command_arg = METADATA_NAME;
-        } else if (strcmp(command_arg, "title") == 0) {
-          arguments.command_arg = METADATA_TITLE;
-        } else if (strcmp(command_arg, "artist") == 0) {
-          arguments.command_arg = METADATA_ARTIST;
-        } else if (strcmp(command_arg, "album") == 0) {
-          arguments.command_arg = METADATA_ALBUM;
-        } else if (strcmp(command_arg, "cover") == 0) {
-          arguments.command_arg = METADATA_COVER;
-        } else if (strcmp(command_arg, "cover-src") == 0) {
-          arguments.command_arg = METADATA_COVER_SRC;
-        } else if (strcmp(command_arg, "state") == 0) {
-          arguments.command_arg = METADATA_STATE;
-        } else if (strcmp(command_arg, "position") == 0) {
-          arguments.command_arg = METADATA_POSITION;
-        } else if (strcmp(command_arg, "position-sec") == 0) {
-          arguments.command_arg = METADATA_POSITION_SEC;
-        } else if (strcmp(command_arg, "duration") == 0) {
-          arguments.command_arg = METADATA_DURATION;
-        } else if (strcmp(command_arg, "duration-sec") == 0) {
-          arguments.command_arg = METADATA_DURATION_SEC;
-        } else if (strcmp(command_arg, "volume") == 0) {
-          arguments.command_arg = METADATA_VOLUME;
-        } else if (strcmp(command_arg, "rating") == 0) {
-          arguments.command_arg = METADATA_RATING;
-        } else if (strcmp(command_arg, "repeat") == 0) {
-          arguments.command_arg = METADATA_REPEAT;
-        } else if (strcmp(command_arg, "shuffle") == 0) {
-          arguments.command_arg = METADATA_SHUFFLE;
-        } else if (strcmp(command_arg, "rating-system") == 0) {
-          arguments.command_arg = METADATA_RATING_SYSTEM;
-        } else if (strcmp(command_arg, "available-repeat") == 0) {
-          arguments.command_arg = METADATA_AVAILABLE_REPEAT;
-        } else if (strcmp(command_arg, "can-set-state") == 0) {
-          arguments.command_arg = METADATA_CAN_SET_STATE;
-        } else if (strcmp(command_arg, "can-skip-previous") == 0) {
-          arguments.command_arg = METADATA_CAN_SKIP_PREVIOUS;
-        } else if (strcmp(command_arg, "can-skip-next") == 0) {
-          arguments.command_arg = METADATA_CAN_SKIP_NEXT;
-        } else if (strcmp(command_arg, "can-set-position") == 0) {
-          arguments.command_arg = METADATA_POSITION;
-        } else if (strcmp(command_arg, "can-set-volume") == 0) {
-          arguments.command_arg = METADATA_CAN_SET_VOLUME;
-        } else if (strcmp(command_arg, "can-set-rating") == 0) {
-          arguments.command_arg = METADATA_CAN_SET_RATING;
-        } else if (strcmp(command_arg, "can-set-repeat") == 0) {
-          arguments.command_arg = METADATA_CAN_SET_REPEAT;
-        } else if (strcmp(command_arg, "can-set-shuffle") == 0) {
-          arguments.command_arg = METADATA_CAN_SET_SHUFFLE;
-        } else if (strcmp(command_arg, "created-at") == 0) {
-          arguments.command_arg = METADATA_CREATED_AT;
-        } else if (strcmp(command_arg, "updated-at") == 0) {
-          arguments.command_arg = METADATA_UPDATED_AT;
-        } else if (strcmp(command_arg, "active-at") == 0) {
-          arguments.command_arg = METADATA_ACTIVE_AT;
-        } else if (strcmp(command_arg, "is-desktop-player") == 0) {
-          arguments.command_arg = METADATA_IS_DESKTOP_PLAYER;
-        } else {
-          printf("Invalid metadata argument: %s\nSee 'wnpcli metadata' for all valid arguments\n", command_arg);
-          exit(EXIT_FAILURE);
+        case COMMAND_METADATA:
+          if (strcmp(command_arg, "all") == 0) {
+            arguments.command_arg = METADATA_ALL;
+          } else if (strcmp(command_arg, "id") == 0) {
+            arguments.command_arg = METADATA_ID;
+          } else if (strcmp(command_arg, "name") == 0) {
+            arguments.command_arg = METADATA_NAME;
+          } else if (strcmp(command_arg, "title") == 0) {
+            arguments.command_arg = METADATA_TITLE;
+          } else if (strcmp(command_arg, "artist") == 0) {
+            arguments.command_arg = METADATA_ARTIST;
+          } else if (strcmp(command_arg, "album") == 0) {
+            arguments.command_arg = METADATA_ALBUM;
+          } else if (strcmp(command_arg, "cover") == 0) {
+            arguments.command_arg = METADATA_COVER;
+          } else if (strcmp(command_arg, "cover-src") == 0) {
+            arguments.command_arg = METADATA_COVER_SRC;
+          } else if (strcmp(command_arg, "state") == 0) {
+            arguments.command_arg = METADATA_STATE;
+          } else if (strcmp(command_arg, "position") == 0) {
+            arguments.command_arg = METADATA_POSITION;
+          } else if (strcmp(command_arg, "position-sec") == 0) {
+            arguments.command_arg = METADATA_POSITION_SEC;
+          } else if (strcmp(command_arg, "duration") == 0) {
+            arguments.command_arg = METADATA_DURATION;
+          } else if (strcmp(command_arg, "duration-sec") == 0) {
+            arguments.command_arg = METADATA_DURATION_SEC;
+          } else if (strcmp(command_arg, "volume") == 0) {
+            arguments.command_arg = METADATA_VOLUME;
+          } else if (strcmp(command_arg, "rating") == 0) {
+            arguments.command_arg = METADATA_RATING;
+          } else if (strcmp(command_arg, "repeat") == 0) {
+            arguments.command_arg = METADATA_REPEAT;
+          } else if (strcmp(command_arg, "shuffle") == 0) {
+            arguments.command_arg = METADATA_SHUFFLE;
+          } else if (strcmp(command_arg, "rating-system") == 0) {
+            arguments.command_arg = METADATA_RATING_SYSTEM;
+          } else if (strcmp(command_arg, "available-repeat") == 0) {
+            arguments.command_arg = METADATA_AVAILABLE_REPEAT;
+          } else if (strcmp(command_arg, "can-set-state") == 0) {
+            arguments.command_arg = METADATA_CAN_SET_STATE;
+          } else if (strcmp(command_arg, "can-skip-previous") == 0) {
+            arguments.command_arg = METADATA_CAN_SKIP_PREVIOUS;
+          } else if (strcmp(command_arg, "can-skip-next") == 0) {
+            arguments.command_arg = METADATA_CAN_SKIP_NEXT;
+          } else if (strcmp(command_arg, "can-set-position") == 0) {
+            arguments.command_arg = METADATA_POSITION;
+          } else if (strcmp(command_arg, "can-set-volume") == 0) {
+            arguments.command_arg = METADATA_CAN_SET_VOLUME;
+          } else if (strcmp(command_arg, "can-set-rating") == 0) {
+            arguments.command_arg = METADATA_CAN_SET_RATING;
+          } else if (strcmp(command_arg, "can-set-repeat") == 0) {
+            arguments.command_arg = METADATA_CAN_SET_REPEAT;
+          } else if (strcmp(command_arg, "can-set-shuffle") == 0) {
+            arguments.command_arg = METADATA_CAN_SET_SHUFFLE;
+          } else if (strcmp(command_arg, "created-at") == 0) {
+            arguments.command_arg = METADATA_CREATED_AT;
+          } else if (strcmp(command_arg, "updated-at") == 0) {
+            arguments.command_arg = METADATA_UPDATED_AT;
+          } else if (strcmp(command_arg, "active-at") == 0) {
+            arguments.command_arg = METADATA_ACTIVE_AT;
+          } else if (strcmp(command_arg, "is-web-browser") == 0) {
+            arguments.command_arg = METADATA_IS_WEB_BROWSER;
+          } else if (strcmp(command_arg, "platform") == 0) {
+            arguments.command_arg = METADATA_PLATFORM;
+          } else {
+            printf("Invalid metadata argument: %s\nSee 'wnpcli metadata' for all valid arguments\n", command_arg);
+            exit(EXIT_FAILURE);
+          }
+          break;
+        case COMMAND_SET_STATE:
+          if (strcmp(command_arg, "PLAYING") == 0) {
+            arguments.command_arg = WNP_STATE_PLAYING;
+          } else if (strcmp(command_arg, "PAUSED") == 0) {
+            arguments.command_arg = WNP_STATE_PAUSED;
+          } else if (strcmp(command_arg, "STOPPED") == 0) {
+            arguments.command_arg = WNP_STATE_STOPPED;
+          } else {
+            printf("Invalid state. Has to be PLAYING, PAUSED or STOPPED.\n");
+            exit(EXIT_FAILURE);
+          }
+          break;
+        case COMMAND_SET_POSITION: {
+          arguments.command_arg = atoi(command_arg);
+          char last_char = command_arg[strlen(command_arg) - 1];
+          if (last_char == '+') {
+            arguments.flags = arguments.flags | RELATIVE_POSITION_PLUS;
+          } else if (last_char == '-') {
+            arguments.flags = arguments.flags | RELATIVE_POSITION_MINUS;
+          }
+          break;
         }
-        break;
-      case COMMAND_SET_STATE:
-        if (strcmp(command_arg, "PLAYING") == 0) {
-          arguments.command_arg = WNP_STATE_PLAYING;
-        } else if (strcmp(command_arg, "PAUSED") == 0) {
-          arguments.command_arg = WNP_STATE_PAUSED;
-        } else if (strcmp(command_arg, "STOPPED") == 0) {
-          arguments.command_arg = WNP_STATE_STOPPED;
-        } else {
-          printf("Invalid state. Has to be PLAYING, PAUSED or STOPPED.\n");
-          exit(EXIT_FAILURE);
-        }
-        break;
-      case COMMAND_SET_POSITION: {
-        arguments.command_arg = atoi(command_arg);
-        char last_char = command_arg[strlen(command_arg) - 1];
-        if (last_char == '+') {
-          arguments.flags = arguments.flags | RELATIVE_POSITION_PLUS;
-        } else if (last_char == '-') {
-          arguments.flags = arguments.flags | RELATIVE_POSITION_MINUS;
-        }
-        break;
-      }
-      case COMMAND_SET_VOLUME:
-        arguments.command_arg = atoi(command_arg);
-        if (arguments.command_arg > 100 || arguments.command_arg < 0) {
-          printf("Invalid volume: %d\n", arguments.command_arg);
-          exit(EXIT_FAILURE);
-        }
-        char last_char = command_arg[strlen(command_arg) - 1];
-        if (last_char == '+') {
-          arguments.flags = arguments.flags | RELATIVE_POSITION_PLUS;
-        } else if (last_char == '-') {
-          arguments.flags = arguments.flags | RELATIVE_POSITION_MINUS;
-        }
-        break;
-      case COMMAND_SET_RATING:
-        arguments.command_arg = atoi(command_arg);
-        if (arguments.command_arg > 5 || arguments.command_arg < 0) {
-          printf("Invalid rating: %d\n", arguments.command_arg);
-          exit(EXIT_FAILURE);
-        }
-        break;
-      case COMMAND_SET_REPEAT:
-        if (strcmp(command_arg, "NONE") == 0) {
-          arguments.command_arg = WNP_REPEAT_NONE;
-        } else if (strcmp(command_arg, "ALL") == 0) {
-          arguments.command_arg = WNP_REPEAT_ALL;
-        } else if (strcmp(command_arg, "ONE") == 0) {
-          arguments.command_arg = WNP_REPEAT_ONE;
-        } else {
-          printf("Invalid repeat mode. Has to be NONE, ALL or ONE.\n");
-          exit(EXIT_FAILURE);
-        }
-        break;
-      case COMMAND_SET_SHUFFLE:
-        arguments.command_arg = atoi(command_arg);
-        if (arguments.command_arg != 0 && arguments.command_arg != 1) {
-          printf("Invalid shuffle state: %d\n", arguments.command_arg);
-          exit(EXIT_FAILURE);
-        }
-        break;
+        case COMMAND_SET_VOLUME:
+          arguments.command_arg = atoi(command_arg);
+          if (arguments.command_arg > 100 || arguments.command_arg < 0) {
+            printf("Invalid volume: %d\n", arguments.command_arg);
+            exit(EXIT_FAILURE);
+          }
+          char last_char = command_arg[strlen(command_arg) - 1];
+          if (last_char == '+') {
+            arguments.flags = arguments.flags | RELATIVE_POSITION_PLUS;
+          } else if (last_char == '-') {
+            arguments.flags = arguments.flags | RELATIVE_POSITION_MINUS;
+          }
+          break;
+        case COMMAND_SET_RATING:
+          arguments.command_arg = atoi(command_arg);
+          if (arguments.command_arg > 5 || arguments.command_arg < 0) {
+            printf("Invalid rating: %d\n", arguments.command_arg);
+            exit(EXIT_FAILURE);
+          }
+          break;
+        case COMMAND_SET_REPEAT:
+          if (strcmp(command_arg, "NONE") == 0) {
+            arguments.command_arg = WNP_REPEAT_NONE;
+          } else if (strcmp(command_arg, "ALL") == 0) {
+            arguments.command_arg = WNP_REPEAT_ALL;
+          } else if (strcmp(command_arg, "ONE") == 0) {
+            arguments.command_arg = WNP_REPEAT_ONE;
+          } else {
+            printf("Invalid repeat mode. Has to be NONE, ALL or ONE.\n");
+            exit(EXIT_FAILURE);
+          }
+          break;
+        case COMMAND_SET_SHUFFLE:
+          arguments.command_arg = atoi(command_arg);
+          if (arguments.command_arg != 0 && arguments.command_arg != 1) {
+            printf("Invalid shuffle state: %d\n", arguments.command_arg);
+            exit(EXIT_FAILURE);
+          }
+          break;
       }
     }
   }
@@ -346,29 +347,29 @@ struct arguments parse_args(int argc, char** argv)
   if (command_index != -1) {
     // COMMAND_METADATA has default of -1, which is METADATA_ALL
     switch (arguments.command) {
-    case COMMAND_SET_STATE:
-    case COMMAND_SET_POSITION:
-    case COMMAND_SET_VOLUME:
-    case COMMAND_SET_RATING:
-    case COMMAND_SET_REPEAT:
-    case COMMAND_SET_SHUFFLE:
-      if (arguments.command_arg == -1) {
-        printf("No argument provided for command %s\n", argv[command_index]);
-        exit(EXIT_FAILURE);
-      }
-      break;
+      case COMMAND_SET_STATE:
+      case COMMAND_SET_POSITION:
+      case COMMAND_SET_VOLUME:
+      case COMMAND_SET_RATING:
+      case COMMAND_SET_REPEAT:
+      case COMMAND_SET_SHUFFLE:
+        if (arguments.command_arg == -1) {
+          printf("No argument provided for command %s\n", argv[command_index]);
+          exit(EXIT_FAILURE);
+        }
+        break;
     }
   }
 
   return arguments;
 }
 
-void no_daemon()
+static void no_daemon()
 {
   printf("Could not connect to daemon.\nStart one with 'wnpcli start-daemon'\nRun 'wnpcli --help' to see all available commands\n");
 }
 
-bool is_daemon_running()
+static bool is_daemon_running()
 {
 #ifdef _WIN32
   WSADATA wsaData;
@@ -399,7 +400,7 @@ bool is_daemon_running()
   return true;
 }
 
-int connect_sock(struct arguments arguments)
+static int connect_sock(arguments_t arguments)
 {
 #ifdef _WIN32
   WSADATA wsaData;
@@ -427,7 +428,7 @@ int connect_sock(struct arguments arguments)
     return EXIT_FAILURE;
   }
 
-  if (send(client_fd, &arguments, sizeof(struct arguments), 0) == -1) {
+  if (send(client_fd, &arguments, sizeof(arguments_t), 0) == -1) {
     no_daemon();
     return EXIT_FAILURE;
   }
@@ -474,7 +475,7 @@ int connect_sock(struct arguments arguments)
 
 int main(int argc, char** argv)
 {
-  struct arguments arguments = parse_args(argc, argv);
+  arguments_t arguments = parse_args(argc, argv);
 
   if (arguments.command == COMMAND_START_DAEMON) {
     if (is_daemon_running()) {

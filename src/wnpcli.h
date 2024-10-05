@@ -1,31 +1,28 @@
+#ifndef WNPCLI_H
+#define WNPCLI_H
+
 #include "cargs.h"
 #include "thread.h"
 #include "wnp.h"
 #include <ctype.h>
 #include <signal.h>
-#include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define MAX_RESPONSE_LEN 2048
 #define CLI_PORT 5468
 
-#ifndef CLI_VERSION
-#define CLI_VERSION "0.0.0"
+#ifndef WNPCLI_VERSION
+#define WNPCLI_VERSION "0.0.0"
 #endif
 
 #ifdef _WIN32
+#include <afunix.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-
-#include <afunix.h>
-
 #define unlink _unlink
 #else
 #include <sys/socket.h>
 #include <sys/un.h>
-
 #include <unistd.h>
 #endif
 
@@ -84,7 +81,7 @@ static void close_fd(int fd)
 #endif
 }
 
-enum commands {
+enum COMMANDS {
   COMMAND_START_DAEMON,
   COMMAND_STOP_DAEMON,
   COMMAND_METADATA,
@@ -103,12 +100,12 @@ enum commands {
   COMMAND_SELECT_NEXT,
 };
 
-enum player_id {
+enum PLAYER_ID {
   PLAYER_ID_ACTIVE = -1,
   PLAYER_ID_SELECTED = -2,
 };
 
-enum metadata {
+enum METADATA {
   METADATA_ALL = -1,
   METADATA_ID,
   METADATA_NAME,
@@ -139,15 +136,16 @@ enum metadata {
   METADATA_CREATED_AT,
   METADATA_UPDATED_AT,
   METADATA_ACTIVE_AT,
-  METADATA_IS_DESKTOP_PLAYER,
+  METADATA_IS_WEB_BROWSER,
+  METADATA_PLATFORM,
 };
 
-enum cli_flags {
+enum CLI_FLAGS {
   RELATIVE_POSITION_PLUS = (1 << 0),
   RELATIVE_POSITION_MINUS = (1 << 1),
 };
 
-struct arguments {
+typedef struct {
   bool no_detach;
   int player_id;
   char format[256];
@@ -157,6 +155,8 @@ struct arguments {
   int command;
   int command_arg;
   int flags;
-};
+} arguments_t;
 
 extern int start_daemon();
+
+#endif /* WNPCLI_H */

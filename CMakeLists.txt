@@ -1,0 +1,53 @@
+cmake_minimum_required(VERSION 3.29)
+
+project(wnpcli VERSION 3.0.0)
+
+find_package(libwnp REQUIRED)
+
+set(SRC_FILES
+  src/daemon.c
+  src/wnpcli.c
+  deps/cargs.c
+)
+
+add_compile_definitions(WNPCLI_VERSION="${PROJECT_VERSION}")
+
+add_executable(${PROJECT_NAME} ${SRC_FILES})
+
+target_include_directories(${PROJECT_NAME}
+  PRIVATE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/deps>
+)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE libwnp::libwnp)
+
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
+
+set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_CONTACT "webnowplaying@keifufu.dev")
+
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "wnpcli - A Command Line Interface for WebNowPlaying")
+set(CPACK_PACKAGE_VENDOR "keifufu")
+set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+  set(CPACK_GENERATOR "DEB;RPM;TGZ")
+  set(CPACK_DEBIAN_PACKAGE_MAINTAINER "keifufu <webnowplaying@keifufu.dev>")
+  set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+  set(CPACK_GENERATOR "ProductBuild")
+  install(TARGETS ${PROJECT_NAME} DESTINATION /usr/local/bin)
+  set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-macos")
+  set(CPACK_PACKAGE_EXECUTABLES "wnpcli;wnpcli")
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+  set(CPACK_GENERATOR "NSIS")
+  set(CPACK_NSIS_MODIFY_PATH ON)
+  set(CPACK_NSIS_DISPLAY_NAME "${CPACK_PACKAGE_NAME} ${CPACK_PACKAGE_VERSION}")
+  set(CPACK_NSIS_INSTALLER_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-win64")
+endif()
+
+include(CPack)

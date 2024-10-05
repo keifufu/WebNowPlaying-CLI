@@ -1,34 +1,18 @@
-#include "wnp.h"
 #include "wnpcli.h"
 
-/**
- * How would "seleted" player work
- *
- * All instances of wnpcli clients share the same selection as the daemon will keep track of it.
- * This is fine because its one user anyway who would want the selection the same across all instances.
- *
- * selected player starts as active player
- * "select-prev" selects closest previous index
- * "select-next" selects clostest next index
- * "select-active" selects active player or default_player
- *
- * if selected player is removed, fallback to active player (which will fallback to DEFAULT_PLAYER)
- *
- */
-
-struct client_state {
-  struct arguments arguments;
+typedef struct {
+  arguments_t arguments;
   char response[MAX_RESPONSE_LEN];
   bool should_close;
   int client_fd;
   long long player_last_updated_at;
-};
+} client_state_t;
 
 #define MAX_STATES 64
-struct client_state* g_states[MAX_STATES] = {0};
+client_state_t* g_states[MAX_STATES] = {0};
 int g_selected_player_id = PLAYER_ID_ACTIVE;
 
-void send_message(int client_fd, const char* message)
+static void send_message(int client_fd, const char* message)
 {
   if (message != NULL) {
     size_t message_len = strlen(message);
@@ -37,30 +21,29 @@ void send_message(int client_fd, const char* message)
   }
 }
 
-struct wnp_player* get_player_from_state(struct client_state* state)
+static bool get_player_from_state(client_state_t* state, wnp_player_t* player_out)
 {
   switch (state->arguments.player_id) {
-  case PLAYER_ID_ACTIVE:
-    return wnp_get_active_player(true);
-  case PLAYER_ID_SELECTED:
-    if (g_selected_player_id == PLAYER_ID_ACTIVE) {
-      return wnp_get_active_player(true);
-    } else {
-      struct wnp_player* player = wnp_get_player(g_selected_player_id, false);
-      if (player == NULL) {
-        g_selected_player_id = PLAYER_ID_ACTIVE;
-        return wnp_get_active_player(true);
+    case PLAYER_ID_ACTIVE:
+      return wnp_get_active_player(player_out);
+    case PLAYER_ID_SELECTED:
+      if (g_selected_player_id == PLAYER_ID_ACTIVE) {
+        return wnp_get_active_player(player_out);
       } else {
-        return player;
+        if (wnp_get_player(g_selected_player_id, player_out)) {
+          return true;
+        } else {
+          g_selected_player_id = PLAYER_ID_ACTIVE;
+          return wnp_get_active_player(player_out);
+        }
       }
-    }
-    break;
-  default:
-    if (state->arguments.player_id >= WNP_MAX_PLAYERS) {
-      return wnp_get_player(0, true);
-    } else {
-      return wnp_get_player(state->arguments.player_id, true);
-    }
+      break;
+    default:
+      if (state->arguments.player_id >= WNP_MAX_PLAYERS) {
+        return wnp_get_player(0, player_out);
+      } else {
+        return wnp_get_player(state->arguments.player_id, player_out);
+      }
   }
 }
 
@@ -69,15 +52,15 @@ struct wnp_player* get_player_from_state(struct client_state* state)
  * SIGTERM, so uh, cope? If you taskkill it then
  * you better know what you're doing anyway.
  *
- * It sends WM_CLOSE but we have no windows so meh.
+ * It sends WM_CLOSE but we have no window so meh.
  **/
 void signal_handler(int signum)
 {
-  wnp_stop();
+  wnp_uninit();
   exit(0);
 }
 
-void replace_placeholder(char* str, const char* placeholder, char* value)
+static void replace_placeholder(char* str, const char* placeholder, char* value)
 {
   char* found = strstr(str, placeholder);
   if (found != NULL) {
@@ -86,22 +69,26 @@ void replace_placeholder(char* str, const char* placeholder, char* value)
   }
 }
 
-void get_formatted_id(struct wnp_player* player, char* output, size_t size)
+static void assign_str(char dest[WNP_STR_LEN], const char* str)
 {
-  char* name_lowercase = strdup(player->name);
-  char* dst = name_lowercase;
-  for (char* src = name_lowercase; *src; ++src) {
-    if (*src != ' ') {
-      *dst = tolower(*src);
-      ++dst;
-    }
-  }
-  *dst = '\0';
-  snprintf(output, size, "%s%d", name_lowercase, player->id);
-  free(name_lowercase);
+  if (str == NULL) return;
+  size_t len = strlen(str);
+  strncpy(dest, str, WNP_STR_LEN - 1);
+  dest[len < WNP_STR_LEN ? len : WNP_STR_LEN - 1] = '\0';
 }
 
-void append_response(struct client_state* state, char* key, char* value)
+static void get_formatted_id(wnp_player_t* player, char id_out[WNP_STR_LEN])
+{
+  char name_lowercase[WNP_STR_LEN] = {0};
+  assign_str(name_lowercase, player->name);
+  for (char* p = id_out; *p; ++p) {
+    *p = tolower(*p);
+  }
+
+  snprintf(id_out, WNP_STR_LEN, "%s%d", name_lowercase, player->id);
+}
+
+static void append_response(client_state_t* state, char* key, char* value)
 {
   char formatted[MAX_RESPONSE_LEN];
   snprintf(formatted, MAX_RESPONSE_LEN, "%-30s %s\n", key, value);
@@ -110,7 +97,7 @@ void append_response(struct client_state* state, char* key, char* value)
   }
 }
 
-bool parse_format_str(const char* formatstr, char* formatout, char* defaultout)
+static bool parse_format_str(const char* formatstr, char* formatout, char* defaultout)
 {
   const char* default_start = strstr(formatstr, "{{default:");
   if (default_start) {
@@ -138,42 +125,42 @@ bool parse_format_str(const char* formatstr, char* formatout, char* defaultout)
 }
 
 // Very naive implementation, but it works for now soooo.... can I be bothered?
-void compute_metadata(struct client_state* state, struct wnp_player* player)
+static void compute_metadata(client_state_t* state, wnp_player_t* player)
 {
-  char id_str[MAX_RESPONSE_LEN] = "";
-  char name_str[MAX_RESPONSE_LEN] = "";
-  char title_str[MAX_RESPONSE_LEN] = "";
-  char artist_str[MAX_RESPONSE_LEN] = "";
-  char album_str[MAX_RESPONSE_LEN] = "";
-  char cover_str[MAX_RESPONSE_LEN] = "";
-  char cover_src_str[MAX_RESPONSE_LEN] = "";
-  char state_str[MAX_RESPONSE_LEN] = "";
-  char position_str[MAX_RESPONSE_LEN] = "";
-  char position_sec_str[MAX_RESPONSE_LEN] = "";
-  char duration_str[MAX_RESPONSE_LEN] = "";
-  char duration_sec_str[MAX_RESPONSE_LEN] = "";
-  char volume_str[MAX_RESPONSE_LEN] = "";
-  char rating_str[MAX_RESPONSE_LEN] = "";
-  char repeat_str[MAX_RESPONSE_LEN] = "";
-  char shuffle_str[MAX_RESPONSE_LEN] = "";
-  char rating_system_str[MAX_RESPONSE_LEN] = "";
-  char available_repeat_str[MAX_RESPONSE_LEN] = "";
-  char can_set_state_str[MAX_RESPONSE_LEN] = "";
-  char can_skip_previous_str[MAX_RESPONSE_LEN] = "";
-  char can_skip_next_str[MAX_RESPONSE_LEN] = "";
-  char can_set_position_str[MAX_RESPONSE_LEN] = "";
-  char can_set_volume_str[MAX_RESPONSE_LEN] = "";
-  char can_set_rating_str[MAX_RESPONSE_LEN] = "";
-  char can_set_repeat_str[MAX_RESPONSE_LEN] = "";
-  char can_set_shuffle_str[MAX_RESPONSE_LEN] = "";
-  char created_at_str[MAX_RESPONSE_LEN] = "";
-  char updated_at_str[MAX_RESPONSE_LEN] = "";
-  char active_at_str[MAX_RESPONSE_LEN] = "";
-  char is_desktop_player_str[MAX_RESPONSE_LEN] = "";
+  char id_str[MAX_RESPONSE_LEN] = {0};
+  char name_str[MAX_RESPONSE_LEN] = {0};
+  char title_str[MAX_RESPONSE_LEN] = {0};
+  char artist_str[MAX_RESPONSE_LEN] = {0};
+  char album_str[MAX_RESPONSE_LEN] = {0};
+  char cover_str[MAX_RESPONSE_LEN] = {0};
+  char cover_src_str[MAX_RESPONSE_LEN] = {0};
+  char state_str[MAX_RESPONSE_LEN] = {0};
+  char position_str[MAX_RESPONSE_LEN] = {0};
+  char position_sec_str[MAX_RESPONSE_LEN] = {0};
+  char duration_str[MAX_RESPONSE_LEN] = {0};
+  char duration_sec_str[MAX_RESPONSE_LEN] = {0};
+  char volume_str[MAX_RESPONSE_LEN] = {0};
+  char rating_str[MAX_RESPONSE_LEN] = {0};
+  char repeat_str[MAX_RESPONSE_LEN] = {0};
+  char shuffle_str[MAX_RESPONSE_LEN] = {0};
+  char rating_system_str[MAX_RESPONSE_LEN] = {0};
+  char available_repeat_str[MAX_RESPONSE_LEN] = {0};
+  char can_set_state_str[MAX_RESPONSE_LEN] = {0};
+  char can_skip_previous_str[MAX_RESPONSE_LEN] = {0};
+  char can_skip_next_str[MAX_RESPONSE_LEN] = {0};
+  char can_set_position_str[MAX_RESPONSE_LEN] = {0};
+  char can_set_volume_str[MAX_RESPONSE_LEN] = {0};
+  char can_set_rating_str[MAX_RESPONSE_LEN] = {0};
+  char can_set_repeat_str[MAX_RESPONSE_LEN] = {0};
+  char can_set_shuffle_str[MAX_RESPONSE_LEN] = {0};
+  char created_at_str[MAX_RESPONSE_LEN] = {0};
+  char updated_at_str[MAX_RESPONSE_LEN] = {0};
+  char active_at_str[MAX_RESPONSE_LEN] = {0};
+  char is_web_browser_str[MAX_RESPONSE_LEN] = {0};
+  char platform_str[MAX_RESPONSE_LEN] = {0};
 
-  wnp_lock(player);
-  char formatted_id[MAX_RESPONSE_LEN] = "";
-  get_formatted_id(player, formatted_id, sizeof(formatted_id));
+  char formatted_id[WNP_STR_LEN] = {0};
+  get_formatted_id(player, formatted_id);
   snprintf(id_str, MAX_RESPONSE_LEN, "%s", formatted_id);
   snprintf(name_str, MAX_RESPONSE_LEN, "%s", player->name);
   snprintf(title_str, MAX_RESPONSE_LEN, "%s", player->title);
@@ -203,15 +190,16 @@ void compute_metadata(struct client_state* state, struct wnp_player* player)
   snprintf(can_set_rating_str, MAX_RESPONSE_LEN, "%s", player->can_set_rating ? "true" : "false");
   snprintf(can_set_repeat_str, MAX_RESPONSE_LEN, "%s", player->can_set_repeat ? "true" : "false");
   snprintf(can_set_shuffle_str, MAX_RESPONSE_LEN, "%s", player->can_set_shuffle ? "true" : "false");
-  snprintf(created_at_str, MAX_RESPONSE_LEN, "%lld", player->created_at);
-  snprintf(updated_at_str, MAX_RESPONSE_LEN, "%lld", player->updated_at);
-  snprintf(active_at_str, MAX_RESPONSE_LEN, "%lld", player->active_at);
-  snprintf(is_desktop_player_str, MAX_RESPONSE_LEN, "%s", player->is_desktop_player ? "true" : "false");
-  wnp_unlock(player);
+  snprintf(created_at_str, MAX_RESPONSE_LEN, "%ld", player->created_at);
+  snprintf(updated_at_str, MAX_RESPONSE_LEN, "%ld", player->updated_at);
+  snprintf(active_at_str, MAX_RESPONSE_LEN, "%ld", player->active_at);
+  snprintf(is_web_browser_str, MAX_RESPONSE_LEN, "%s", player->is_web_browser ? "true" : "false");
+  char* platforms[] = {"none", "web", "linux", "darwin", "windows"};
+  snprintf(platform_str, MAX_RESPONSE_LEN, "%s", platforms[player->platform]);
 
   if (strlen(state->arguments.format) > 0) {
-    char format_str[MAX_RESPONSE_LEN] = "";
-    char default_str[MAX_RESPONSE_LEN] = "";
+    char format_str[MAX_RESPONSE_LEN] = {0};
+    char default_str[MAX_RESPONSE_LEN] = {0};
     if (parse_format_str(state->arguments.format, format_str, default_str) && player->id == -1) {
       strncpy(state->response, default_str, MAX_RESPONSE_LEN);
       return;
@@ -247,153 +235,154 @@ void compute_metadata(struct client_state* state, struct wnp_player* player)
     replace_placeholder(state->response, "{{created-at}}", created_at_str);
     replace_placeholder(state->response, "{{updated-at}}", updated_at_str);
     replace_placeholder(state->response, "{{active-at}}", active_at_str);
-    replace_placeholder(state->response, "{{is-desktop-player}}", is_desktop_player_str);
+    replace_placeholder(state->response, "{{is-web-browser}}", is_web_browser_str);
+    replace_placeholder(state->response, "{{platform}}", platform_str);
     return;
   }
 
   switch (state->arguments.command_arg) {
-  case METADATA_ALL:
-    append_response(state, "id", id_str);
-    append_response(state, "name", name_str);
-    append_response(state, "title", title_str);
-    append_response(state, "artist", artist_str);
-    append_response(state, "album", album_str);
-    append_response(state, "cover", cover_str);
-    append_response(state, "cover-src", cover_src_str);
-    append_response(state, "state", state_str);
-    append_response(state, "position", position_str);
-    append_response(state, "position-sec", position_sec_str);
-    append_response(state, "duration", duration_str);
-    append_response(state, "duration-sec", duration_sec_str);
-    append_response(state, "volume", volume_str);
-    append_response(state, "rating", rating_str);
-    append_response(state, "repeat", repeat_str);
-    append_response(state, "shuffle", shuffle_str);
-    append_response(state, "rating-system", rating_system_str);
-    append_response(state, "available-repeat", available_repeat_str);
-    append_response(state, "can-set-state", can_set_state_str);
-    append_response(state, "can-skip-previous", can_skip_previous_str);
-    append_response(state, "can-skip-next", can_skip_next_str);
-    append_response(state, "can-set-position", can_set_position_str);
-    append_response(state, "can-set-volume", can_set_volume_str);
-    append_response(state, "can-set-rating", can_set_rating_str);
-    append_response(state, "can-set-repeat", can_set_repeat_str);
-    append_response(state, "can-set-shuffle", can_set_shuffle_str);
-    append_response(state, "created-at", created_at_str);
-    append_response(state, "updated-at", updated_at_str);
-    append_response(state, "active-at", active_at_str);
-    append_response(state, "is-desktop-player", is_desktop_player_str);
-    break;
-  case METADATA_ID:
-    strncpy(state->response, id_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_NAME:
-    strncpy(state->response, name_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_TITLE:
-    strncpy(state->response, title_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_ARTIST:
-    strncpy(state->response, artist_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_ALBUM:
-    strncpy(state->response, album_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_COVER:
-    strncpy(state->response, cover_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_COVER_SRC:
-    strncpy(state->response, cover_src_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_STATE:
-    strncpy(state->response, state_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_POSITION:
-    strncpy(state->response, position_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_POSITION_SEC:
-    strncpy(state->response, position_sec_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_DURATION:
-    strncpy(state->response, duration_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_DURATION_SEC:
-    strncpy(state->response, duration_sec_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_VOLUME:
-    strncpy(state->response, volume_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_RATING:
-    strncpy(state->response, rating_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_REPEAT:
-    strncpy(state->response, repeat_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_SHUFFLE:
-    strncpy(state->response, shuffle_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_RATING_SYSTEM:
-    strncpy(state->response, rating_system_str, MAX_RESPONSE_LEN);
-  case METADATA_AVAILABLE_REPEAT:
-    strncpy(state->response, available_repeat_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_CAN_SET_STATE:
-    strncpy(state->response, can_set_state_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_CAN_SKIP_PREVIOUS:
-    strncpy(state->response, can_skip_previous_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_CAN_SKIP_NEXT:
-    strncpy(state->response, can_skip_next_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_CAN_SET_POSITION:
-    strncpy(state->response, can_set_position_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_CAN_SET_VOLUME:
-    strncpy(state->response, can_set_volume_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_CAN_SET_RATING:
-    strncpy(state->response, can_set_rating_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_CAN_SET_REPEAT:
-    strncpy(state->response, can_set_repeat_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_CAN_SET_SHUFFLE:
-    strncpy(state->response, can_set_shuffle_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_CREATED_AT:
-    strncpy(state->response, created_at_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_UPDATED_AT:
-    strncpy(state->response, updated_at_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_ACTIVE_AT:
-    strncpy(state->response, active_at_str, MAX_RESPONSE_LEN);
-    break;
-  case METADATA_IS_DESKTOP_PLAYER:
-    strncpy(state->response, is_desktop_player_str, MAX_RESPONSE_LEN);
-    break;
+    case METADATA_ALL:
+      append_response(state, "id", id_str);
+      append_response(state, "name", name_str);
+      append_response(state, "title", title_str);
+      append_response(state, "artist", artist_str);
+      append_response(state, "album", album_str);
+      append_response(state, "cover", cover_str);
+      append_response(state, "cover-src", cover_src_str);
+      append_response(state, "state", state_str);
+      append_response(state, "position", position_str);
+      append_response(state, "position-sec", position_sec_str);
+      append_response(state, "duration", duration_str);
+      append_response(state, "duration-sec", duration_sec_str);
+      append_response(state, "volume", volume_str);
+      append_response(state, "rating", rating_str);
+      append_response(state, "repeat", repeat_str);
+      append_response(state, "shuffle", shuffle_str);
+      append_response(state, "rating-system", rating_system_str);
+      append_response(state, "available-repeat", available_repeat_str);
+      append_response(state, "can-set-state", can_set_state_str);
+      append_response(state, "can-skip-previous", can_skip_previous_str);
+      append_response(state, "can-skip-next", can_skip_next_str);
+      append_response(state, "can-set-position", can_set_position_str);
+      append_response(state, "can-set-volume", can_set_volume_str);
+      append_response(state, "can-set-rating", can_set_rating_str);
+      append_response(state, "can-set-repeat", can_set_repeat_str);
+      append_response(state, "can-set-shuffle", can_set_shuffle_str);
+      append_response(state, "created-at", created_at_str);
+      append_response(state, "updated-at", updated_at_str);
+      append_response(state, "active-at", active_at_str);
+      append_response(state, "is-web-browser", is_web_browser_str);
+      append_response(state, "platform", platform_str);
+      break;
+    case METADATA_ID:
+      strncpy(state->response, id_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_NAME:
+      strncpy(state->response, name_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_TITLE:
+      strncpy(state->response, title_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_ARTIST:
+      strncpy(state->response, artist_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_ALBUM:
+      strncpy(state->response, album_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_COVER:
+      strncpy(state->response, cover_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_COVER_SRC:
+      strncpy(state->response, cover_src_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_STATE:
+      strncpy(state->response, state_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_POSITION:
+      strncpy(state->response, position_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_POSITION_SEC:
+      strncpy(state->response, position_sec_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_DURATION:
+      strncpy(state->response, duration_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_DURATION_SEC:
+      strncpy(state->response, duration_sec_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_VOLUME:
+      strncpy(state->response, volume_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_RATING:
+      strncpy(state->response, rating_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_REPEAT:
+      strncpy(state->response, repeat_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_SHUFFLE:
+      strncpy(state->response, shuffle_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_RATING_SYSTEM:
+      strncpy(state->response, rating_system_str, MAX_RESPONSE_LEN);
+    case METADATA_AVAILABLE_REPEAT:
+      strncpy(state->response, available_repeat_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_CAN_SET_STATE:
+      strncpy(state->response, can_set_state_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_CAN_SKIP_PREVIOUS:
+      strncpy(state->response, can_skip_previous_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_CAN_SKIP_NEXT:
+      strncpy(state->response, can_skip_next_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_CAN_SET_POSITION:
+      strncpy(state->response, can_set_position_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_CAN_SET_VOLUME:
+      strncpy(state->response, can_set_volume_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_CAN_SET_RATING:
+      strncpy(state->response, can_set_rating_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_CAN_SET_REPEAT:
+      strncpy(state->response, can_set_repeat_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_CAN_SET_SHUFFLE:
+      strncpy(state->response, can_set_shuffle_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_CREATED_AT:
+      strncpy(state->response, created_at_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_UPDATED_AT:
+      strncpy(state->response, updated_at_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_ACTIVE_AT:
+      strncpy(state->response, active_at_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_IS_WEB_BROWSER:
+      strncpy(state->response, is_web_browser_str, MAX_RESPONSE_LEN);
+      break;
+    case METADATA_PLATFORM:
+      strncpy(state->response, platform_str, MAX_RESPONSE_LEN);
+      break;
   }
 }
 
-void compute_state(struct client_state* state)
+static void compute_state(client_state_t* state)
 {
   if (state->arguments.list_all) {
-    struct wnp_player* players[WNP_MAX_PLAYERS];
-    int num = wnp_get_all_players(players);
+    wnp_player_t players[WNP_MAX_PLAYERS];
+    int count = wnp_get_all_players(players);
     char player_info[MAX_RESPONSE_LEN];
     memset(player_info, 0, sizeof(player_info));
 
-    for (int i = 0; i < num; i++) {
-      if (players[i] != NULL) {
-        char info[MAX_RESPONSE_LEN];
-        wnp_lock(players[i]);
-        char formatted_id[MAX_RESPONSE_LEN] = "";
-        get_formatted_id(players[i], formatted_id, sizeof(formatted_id));
-        snprintf(info, MAX_RESPONSE_LEN, "%s %s\n", formatted_id, players[i]->name);
-        wnp_unlock(players[i]);
-        strncat(player_info, info, MAX_RESPONSE_LEN - strlen(player_info) - 1);
-      }
+    for (int i = 0; i < count; i++) {
+      char info[MAX_RESPONSE_LEN];
+      char formatted_id[WNP_STR_LEN] = {0};
+      get_formatted_id(&players[i], formatted_id);
+      snprintf(info, MAX_RESPONSE_LEN, "%s %s\n", formatted_id, players[i].name);
+      strncat(player_info, info, MAX_RESPONSE_LEN - strlen(player_info) - 1);
     }
 
     strncpy(state->response, player_info, MAX_RESPONSE_LEN);
@@ -401,145 +390,142 @@ void compute_state(struct client_state* state)
     return;
   }
 
-  struct wnp_player* player = get_player_from_state(state);
+  wnp_player_t player = WNP_DEFAULT_PLAYER;
+  get_player_from_state(state, &player);
   int event_id = -1;
 
   switch (state->arguments.command) {
-  case COMMAND_STOP_DAEMON:
-    // Need to send the messages in here instead of after compute_state
-    // since we stop the daemon here.
-    printf("Received stop-daemon. Stopping...\n");
-    send_message(state->client_fd, "Daemon stopped.");
-    signal_handler(SIGTERM);
-    break;
-  case COMMAND_METADATA:
-    compute_metadata(state, player);
-    state->should_close = !state->arguments.follow;
-    break;
-  case COMMAND_SET_STATE:
-    event_id = wnp_try_set_state(player, state->arguments.command);
-    break;
-  case COMMAND_SKIP_PREVIOUS:
-    event_id = wnp_try_skip_previous(player);
-    break;
-  case COMMAND_SKIP_NEXT:
-    event_id = wnp_try_skip_next(player);
-    break;
-  case COMMAND_SET_POSITION:
-    if (state->arguments.flags & RELATIVE_POSITION_PLUS) {
-      event_id = wnp_try_forward(player, state->arguments.command_arg);
-    } else if (state->arguments.flags & RELATIVE_POSITION_MINUS) {
-      event_id = wnp_try_revert(player, state->arguments.command_arg);
-    } else {
-      event_id = wnp_try_set_position(player, state->arguments.command_arg);
-    }
-    break;
-  case COMMAND_SET_VOLUME:
-    if (state->arguments.flags & RELATIVE_POSITION_PLUS) {
-      event_id = wnp_try_set_volume(player, state->arguments.command_arg + player->volume);
-    } else if (state->arguments.flags & RELATIVE_POSITION_MINUS) {
-      event_id = wnp_try_set_volume(player, state->arguments.command_arg - player->volume);
-    } else {
-      event_id = wnp_try_set_volume(player, state->arguments.command_arg);
-    }
-    break;
-  case COMMAND_SET_RATING:
-    event_id = wnp_try_set_rating(player, state->arguments.command_arg);
-    break;
-  case COMMAND_SET_REPEAT:
-    event_id = wnp_try_set_repeat(player, state->arguments.command_arg);
-    break;
-  case COMMAND_SET_SHUFFLE:
-    event_id = wnp_try_set_shuffle(player, state->arguments.command_arg);
-    break;
-  case COMMAND_PLAY_PAUSE:
-    event_id = wnp_try_play_pause(player);
-    break;
-  case COMMAND_TOGGLE_REPEAT:
-    event_id = wnp_try_toggle_repeat(player);
-    break;
-  case COMMAND_SELECT_ACTIVE:
-    g_selected_player_id = PLAYER_ID_ACTIVE;
-    break;
-  case COMMAND_SELECT_PREVIOUS: {
-    bool found = false;
-
-    // Search between <current> and 0
-    for (int i = player->id - 1; i >= 0; i--) {
-      struct wnp_player* new_player = wnp_get_player(i, false);
-      if (new_player != NULL) {
-        g_selected_player_id = new_player->id;
-        found = true;
-        break;
+    case COMMAND_STOP_DAEMON:
+      // Need to send the messages in here instead of after compute_state
+      // since we stop the daemon here.
+      printf("Received stop-daemon. Stopping...\n");
+      send_message(state->client_fd, "Daemon stopped.");
+      signal_handler(SIGTERM);
+      break;
+    case COMMAND_METADATA:
+      compute_metadata(state, &player);
+      state->should_close = !state->arguments.follow;
+      break;
+    case COMMAND_SET_STATE:
+      event_id = wnp_try_set_state(&player, state->arguments.command);
+      break;
+    case COMMAND_SKIP_PREVIOUS:
+      event_id = wnp_try_skip_previous(&player);
+      break;
+    case COMMAND_SKIP_NEXT:
+      event_id = wnp_try_skip_next(&player);
+      break;
+    case COMMAND_SET_POSITION:
+      if (state->arguments.flags & RELATIVE_POSITION_PLUS) {
+        event_id = wnp_try_forward(&player, state->arguments.command_arg);
+      } else if (state->arguments.flags & RELATIVE_POSITION_MINUS) {
+        event_id = wnp_try_revert(&player, state->arguments.command_arg);
+      } else {
+        event_id = wnp_try_set_position(&player, state->arguments.command_arg);
       }
-    }
+      break;
+    case COMMAND_SET_VOLUME:
+      if (state->arguments.flags & RELATIVE_POSITION_PLUS) {
+        event_id = wnp_try_set_volume(&player, state->arguments.command_arg + player.volume);
+      } else if (state->arguments.flags & RELATIVE_POSITION_MINUS) {
+        event_id = wnp_try_set_volume(&player, state->arguments.command_arg - player.volume);
+      } else {
+        event_id = wnp_try_set_volume(&player, state->arguments.command_arg);
+      }
+      break;
+    case COMMAND_SET_RATING:
+      event_id = wnp_try_set_rating(&player, state->arguments.command_arg);
+      break;
+    case COMMAND_SET_REPEAT:
+      event_id = wnp_try_set_repeat(&player, state->arguments.command_arg);
+      break;
+    case COMMAND_SET_SHUFFLE:
+      event_id = wnp_try_set_shuffle(&player, state->arguments.command_arg);
+      break;
+    case COMMAND_PLAY_PAUSE:
+      event_id = wnp_try_play_pause(&player);
+      break;
+    case COMMAND_TOGGLE_REPEAT:
+      event_id = wnp_try_toggle_repeat(&player);
+      break;
+    case COMMAND_SELECT_ACTIVE:
+      g_selected_player_id = PLAYER_ID_ACTIVE;
+      break;
+    case COMMAND_SELECT_PREVIOUS: {
+      bool found = false;
 
-    if (!found) {
-      // Search between <max> and <current>
-      for (int i = WNP_MAX_PLAYERS; i > player->id; i--) {
-        struct wnp_player* new_player = wnp_get_player(i, false);
-        if (new_player != NULL) {
-          g_selected_player_id = new_player->id;
+      // Search between <current> and 0
+      for (int i = player.id - 1; i >= 0; i--) {
+        wnp_player_t new_player = WNP_DEFAULT_PLAYER;
+        if (wnp_get_player(i, &new_player)) {
+          g_selected_player_id = new_player.id;
           found = true;
           break;
         }
       }
-    }
 
-    state->should_close = true;
-    if (!found) {
-      snprintf(state->response, MAX_RESPONSE_LEN, "No player to select was found");
-    } else {
-      char formatted_id[MAX_RESPONSE_LEN] = "";
-      wnp_lock(player);
-      get_formatted_id(player, formatted_id, sizeof(formatted_id));
-      wnp_unlock(player);
-      snprintf(state->response, MAX_RESPONSE_LEN, "Selected player %s", formatted_id);
-    }
-    break;
-  }
-  case COMMAND_SELECT_NEXT: {
-    bool found = false;
-
-    // Search between <current> and <max>
-    for (int i = player->id + 1; i < WNP_MAX_PLAYERS; i++) {
-      struct wnp_player* new_player = wnp_get_player(i, false);
-      if (new_player != NULL) {
-        g_selected_player_id = new_player->id;
-        found = true;
-        break;
+      if (!found) {
+        // Search between <max> and <current>
+        for (int i = WNP_MAX_PLAYERS; i > player.id; i--) {
+          wnp_player_t new_player = WNP_DEFAULT_PLAYER;
+          if (wnp_get_player(i, &player)) {
+            g_selected_player_id = player.id;
+            found = true;
+            break;
+          }
+        }
       }
-    }
 
-    if (!found) {
-      // Search between 0 and <current>
-      for (int i = 0; i < player->id; i++) {
-        struct wnp_player* new_player = wnp_get_player(i, false);
-        if (new_player != NULL) {
-          g_selected_player_id = new_player->id;
+      state->should_close = true;
+      if (!found) {
+        snprintf(state->response, MAX_RESPONSE_LEN, "No player to select was found");
+      } else {
+        char formatted_id[MAX_RESPONSE_LEN] = {0};
+        get_formatted_id(&player, formatted_id);
+        snprintf(state->response, MAX_RESPONSE_LEN, "Selected player %s", formatted_id);
+      }
+      break;
+    }
+    case COMMAND_SELECT_NEXT: {
+      bool found = false;
+
+      // Search between <current> and <max>
+      for (int i = player.id + 1; i < WNP_MAX_PLAYERS; i++) {
+        wnp_player_t new_player = WNP_DEFAULT_PLAYER;
+        if (wnp_get_player(i, &player)) {
+          g_selected_player_id = new_player.id;
           found = true;
           break;
         }
       }
-    }
 
-    state->should_close = true;
-    if (!found) {
-      snprintf(state->response, MAX_RESPONSE_LEN, "No player to select was found");
-    } else {
-      char formatted_id[MAX_RESPONSE_LEN] = "";
-      wnp_lock(player);
-      get_formatted_id(player, formatted_id, sizeof(formatted_id));
-      wnp_unlock(player);
-      snprintf(state->response, MAX_RESPONSE_LEN, "Selected player %s", formatted_id);
+      if (!found) {
+        // Search between 0 and <current>
+        for (int i = 0; i < player.id; i++) {
+          wnp_player_t new_player = WNP_DEFAULT_PLAYER;
+          if (wnp_get_player(i, &player)) {
+            g_selected_player_id = new_player.id;
+            found = true;
+            break;
+          }
+        }
+      }
+
+      state->should_close = true;
+      if (!found) {
+        snprintf(state->response, MAX_RESPONSE_LEN, "No player to select was found");
+      } else {
+        char formatted_id[MAX_RESPONSE_LEN] = {0};
+        get_formatted_id(&player, formatted_id);
+        snprintf(state->response, MAX_RESPONSE_LEN, "Selected player %s", formatted_id);
+      }
+      break;
     }
-    break;
-  }
   }
 
   if (event_id != -1) {
     if (state->arguments.wait) {
-      enum wnp_event_result result = wnp_wait_for_event_result(event_id);
+      wnp_event_result_t result = wnp_wait_for_event_result(event_id);
       char* responses[] = {"PENDING", "SUCCEEDED", "FAILED"};
       snprintf(state->response, MAX_RESPONSE_LEN, "%s", responses[result]);
       state->should_close = true;
@@ -552,31 +538,32 @@ void compute_state(struct client_state* state)
   }
 }
 
-void on_any_wnp_update(struct wnp_player* player, void* data)
+static void on_any_wnp_update(wnp_player_t* player, void* data)
 {
   for (int i = 0; i < MAX_STATES; i++) {
-    struct client_state* state = g_states[i];
+    client_state_t* state = g_states[i];
     if (state != NULL) {
-      struct wnp_player* player = get_player_from_state(state);
-      if (state->player_last_updated_at != player->updated_at) {
+      wnp_player_t player = WNP_DEFAULT_PLAYER;
+      get_player_from_state(state, &player);
+      if (state->player_last_updated_at != player.updated_at) {
         char* last_response = strdup(state->response);
         compute_state(state);
         if (strcmp(last_response, state->response) != 0) {
           send_message(state->client_fd, state->response);
         }
-        state->player_last_updated_at = player->updated_at;
+        state->player_last_updated_at = player.updated_at;
         free(last_response);
       }
     }
   }
 }
 
-int handle_client(void* data)
+static int handle_client(void* data)
 {
   int client_fd = *((int*)data);
-  struct client_state state = {{false, -1, "", false, false, false, -1, -1}, "", false, client_fd, 0};
+  client_state_t state = {{false, -1, "", false, false, false, -1, -1}, "", false, client_fd, 0};
 
-  if (recv(client_fd, &state.arguments, sizeof(struct arguments), 0) <= 0) {
+  if (recv(client_fd, &state.arguments, sizeof(arguments_t), 0) <= 0) {
     return 0;
   } else {
     compute_state(&state);
@@ -626,13 +613,17 @@ int start_daemon()
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
 
-  struct wnp_events events;
-  events.on_player_added = &on_any_wnp_update;
-  events.on_player_updated = &on_any_wnp_update;
-  events.on_player_removed = &on_any_wnp_update;
-  events.on_active_player_changed = &on_any_wnp_update;
-  events.data = NULL;
-  int wnp_ret = wnp_start(CLI_PORT, CLI_VERSION, &events);
+  wnp_args_t args = {
+      .web_port = CLI_PORT,
+      .adapter_version = WNPCLI_VERSION,
+      .on_player_added = &on_any_wnp_update,
+      .on_player_updated = &on_any_wnp_update,
+      .on_player_removed = &on_any_wnp_update,
+      .on_active_player_changed = &on_any_wnp_update,
+      .callback_data = NULL,
+  };
+
+  int wnp_ret = wnp_init(&args);
   if (wnp_ret > 0) {
     fprintf(stderr, "Failed to start webnowplaying with code %d\n", wnp_ret);
     exit(-1);

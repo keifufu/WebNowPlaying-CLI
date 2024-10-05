@@ -8,3 +8,4 @@ AllowShortIfStatementsOnASingleLine: WithoutElse
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterFunction: true
+IndentCaseLabels: true

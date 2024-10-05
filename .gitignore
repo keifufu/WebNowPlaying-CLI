@@ -1,8 +1,4 @@
-build
-deps
-dist
-result
-wnp.h
 .vscode
-.vs
-vc140.pdb
+result
+build
+dist

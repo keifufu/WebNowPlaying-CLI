@@ -12,28 +12,21 @@
       "aarch64-linux"
       "aarch64-darwin"
     ];
-    perSystem = { pkgs, system, ...}: let 
+    perSystem = { pkgs, system, lib, ...}: let 
       libwnppkg = libwnp.packages.${system}.default;
     in {
       packages.default = pkgs.stdenv.mkDerivation {
         pname = "wnpcli";
-        version = builtins.readFile ./VERSION;
+        version = "3.0.0";
         src = ./.;
-        buildInputs = with pkgs; [ clang makeWrapper ] ++ [ libwnppkg ];
-        buildPhase = ''
-          make linux64 LIBPATH=${libwnppkg}/lib/libwnp.a
-        '';
-        installPhase = ''
-          mkdir -p $out/bin
-          cp build/wnpcli_linux_amd64 $out/bin/wnpcli
-        '';
+        nativeBuildInputs = [ pkgs.cmake ]
+          ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.pkg-config ];
+        buildInputs = [ libwnppkg ]
+          ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.glib ];
       };
       devShells.default = pkgs.mkShell {
-        shellHook = "
-          cp -f ${libwnppkg}/include/wnp.h src/
-          exec $SHELL
-        ";
-        buildInputs = with pkgs; [ clang valgrind gnumake ] ++ [ libwnppkg ];
+        shellHook = "exec $SHELL";
+        buildInputs = with pkgs; [ clang cmake glib pkg-config dpkg rpm ] ++ [ libwnppkg ];
       };
     };
     flake = {
