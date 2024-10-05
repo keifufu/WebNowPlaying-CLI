@@ -16,9 +16,12 @@
 #endif
 
 #ifdef _WIN32
-#include <afunix.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+
+// afunix.h has to be included after the two above
+#include <afunix.h>
+
 #define unlink _unlink
 #else
 #include <sys/socket.h>

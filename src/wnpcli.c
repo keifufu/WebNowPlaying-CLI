@@ -447,7 +447,7 @@ static int connect_sock(arguments_t arguments)
 
     message_buffer[message_len] = '\0';
 #ifdef _WIN64
-    char16_t utf16_buffer[MAX_RESPONSE_LEN] = {0};
+    uint16_t utf16_buffer[MAX_RESPONSE_LEN] = {0};
     wnp_utf8_to_utf16(message_buffer, message_len, utf16_buffer, MAX_RESPONSE_LEN);
     wprintf(L"%ls\n", utf16_buffer);
 #else
