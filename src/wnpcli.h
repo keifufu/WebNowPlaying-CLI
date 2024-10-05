@@ -7,6 +7,7 @@
 #include <ctype.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define MAX_RESPONSE_LEN 2048
 #define CLI_PORT 5468
