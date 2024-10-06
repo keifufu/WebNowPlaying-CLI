@@ -27,6 +27,13 @@ else
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION=$(cat "$SCRIPT_DIR/VERSION")
+
+if [ ! -d "$SCRIPT_DIR/libwnp" ]; then
+  git clone --branch "$VERSION" --single-branch https://github.com/keifufu/WebNowPlaying-Library "$SCRIPT_DIR/libwnp"
+  "$SCRIPT_DIR/libwnp/build.sh"
+fi
+LIBWNP_DIR="$SCRIPT_DIR/libwnp/build/lib/cmake/libwnp"
 
 rm -rf "$SCRIPT_DIR/build"
 rm -rf "$SCRIPT_DIR/dist"
@@ -34,14 +41,12 @@ rm -rf "$SCRIPT_DIR/dist"
 mkdir "$SCRIPT_DIR/build"
 mkdir "$SCRIPT_DIR/dist"
 
-cmake -S "$SCRIPT_DIR" -B "$SCRIPT_DIR/build" -DCMAKE_INSTALL_PREFIX="$SCRIPT_DIR/build" -DCMAKE_BUILD_TYPE=Release
+cmake -S "$SCRIPT_DIR" -B "$SCRIPT_DIR/build" -DCMAKE_INSTALL_PREFIX="$SCRIPT_DIR/build" -DCMAKE_BUILD_TYPE=Release -Dlibwnp_DIR="$LIBWNP_DIR"
 cmake --build "$SCRIPT_DIR/build"
 cmake --install "$SCRIPT_DIR/build"
 
 cpack -B "$SCRIPT_DIR/dist" --config "$SCRIPT_DIR/build/CPackConfig.cmake"
 rm -rf "$SCRIPT_DIR/dist/_CPack_Packages"
-
-VERSION=$(cat "$SCRIPT_DIR/VERSION")
 
 tar -czf "$SCRIPT_DIR/dist/wnpcli-${VERSION}_${PLATFORM}.tar.gz" \
   -C "$SCRIPT_DIR" README.md LICENSE CHANGELOG.md VERSION \
