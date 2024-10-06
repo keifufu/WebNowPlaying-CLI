@@ -1,7 +1,6 @@
 # WebNowPlaying CLI
 
-A CLI adapter for [WebNowPlaying](https://github.com/keifufu/WebNowPlaying).  
-Support for desktop players is limited to Windows as of now.
+A CLI adapter for [WebNowPlaying](https://github.com/keifufu/WebNowPlaying).
 
 # Installing
 
@@ -69,13 +68,3 @@ Available Options:
   -h, --help              Show this help list
   -v, --version           Print program version
 ```
-
-# TODO
-
-- Packaged for linux distributions
-- Windows installer
-
-# Credits
-
-- [likle/cargs](https://github.com/likle/cargs)
-- [keifufu/WebNowPlaying-Library](https://github.com/keifufu/WebNowPlaying-Library)
