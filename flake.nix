@@ -17,7 +17,7 @@
     in {
       packages.default = pkgs.stdenv.mkDerivation {
         pname = "wnpcli";
-        version = "3.0.0";
+        version = builtins.readFile ./VERSION;
         src = ./.;
         nativeBuildInputs = [ pkgs.cmake ]
           ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.pkg-config ];
