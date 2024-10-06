@@ -51,5 +51,4 @@ VERSION=$(cat "$SCRIPT_DIR/VERSION")
 
 tar -czf "$SCRIPT_DIR/dist/wnpcli-${VERSION}_${PLATFORM}.tar.gz" \
   -C "$SCRIPT_DIR" README.md LICENSE CHANGELOG.md VERSION \
-  --transform 's,^wnpcli,bin/wnpcli,' \
-  -C "$SCRIPT_DIR/build" wnpcli
+  -C "$SCRIPT_DIR/build" bin
