@@ -2,6 +2,7 @@ name: Build and Release
 
 env:
   VERSION: "0.0.0"
+  PRERELEASE: false
 
 on:
   push:
@@ -49,6 +50,11 @@ jobs:
         run: |
           VER=$(cat VERSION)
           echo "VERSION=$VER" >> $GITHUB_ENV
+          if [[ "$VER" == *"alpha"* || "$VER" == *"beta"* ]]; then
+            echo "PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "PRERELEASE=false" >> $GITHUB_ENV
+          fi
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -65,5 +71,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ env.VERSION }}
           name: v${{ env.VERSION }}
+          prerelease: ${{ env.PRERELEASE }}
           files: |
             ./dist/*
