@@ -23,6 +23,7 @@
           ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.pkg-config ];
         buildInputs = [ libwnppkg ]
           ++ lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.glib ];
+        meta.mainProgram = "wnpcli";
       };
       devShells.default = pkgs.mkShell {
         shellHook = "exec $SHELL";
